@@ -5,6 +5,8 @@ import os
 
 from services.birthday_service import obtener_cumpleanos_rango, crear_cumpleanos, eliminar_cumpleanos, obtener_todos_cumpleanos
 from services.anuncio_service import obtener_todos_anuncios, crear_anuncio, actualizar_anuncio, eliminar_anuncio
+from services.ofrenda_service import obtener_todas_ofrendas, crear_ofrenda, eliminar_ofrenda
+from services.bible_service import buscar_textos_biblicos
 
 router = APIRouter()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -19,12 +21,19 @@ class CumpleanosCreate(BaseModel):
 class AnuncioCreate(BaseModel):
     titulo: str = Field(..., min_length=1, description="Título del anuncio")
     contenido: str = Field(..., min_length=1, description="Contenido del anuncio")
+    color: str = Field(default="#3498db", description="Color del anuncio")
     activo: bool = True
 
 class AnuncioUpdate(BaseModel):
     titulo: str | None = Field(None, min_length=1)
     contenido: str | None = Field(None, min_length=1)
+    color: str | None = None
     activo: bool | None = None
+
+class OfrendaCreate(BaseModel):
+    concepto: str = Field(..., min_length=1, description="Concepto de la ofrenda")
+    monto: float = Field(..., gt=0, description="Monto de la ofrenda")
+    fecha: str = Field(..., pattern=r'^\d{4}-\d{2}-\d{2}$', description="Fecha en formato YYYY-MM-DD")
 
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_panel(request: Request):
@@ -71,7 +80,7 @@ async def get_anuncios():
 async def create_anuncio(data: AnuncioCreate):
     """Crea un nuevo anuncio."""
     try:
-        return crear_anuncio(data.titulo, data.contenido, data.activo)
+        return crear_anuncio(data.titulo, data.contenido, data.activo, data.color)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -85,6 +94,7 @@ async def update_anuncio(id: int, data: AnuncioUpdate):
             id=id,
             titulo=data.titulo,
             contenido=data.contenido,
+            color=data.color,
             activo=data.activo
         )
         if resultado is None:
@@ -101,3 +111,34 @@ async def delete_anuncio(id: int):
     if eliminar_anuncio(id):
         return {"message": "Eliminado correctamente"}
     raise HTTPException(status_code=404, detail="No encontrado")
+
+# ==================== RUTAS DE OFRENDAS ====================
+
+@router.get("/api/admin/ofrendas")
+async def get_ofrendas():
+    """Obtiene todas las ofrendas registradas."""
+    return obtener_todas_ofrendas()
+
+@router.post("/api/admin/ofrendas")
+async def create_ofrenda(data: OfrendaCreate):
+    """Crea un nuevo registro de ofrenda."""
+    try:
+        return crear_ofrenda(data.concepto, data.monto, data.fecha)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error interno al crear ofrenda")
+
+@router.delete("/api/admin/ofrendas/{id}")
+async def delete_ofrenda(id: int):
+    """Elimina una ofrenda por ID."""
+    if eliminar_ofrenda(id):
+        return {"message": "Eliminado correctamente"}
+    raise HTTPException(status_code=404, detail="No encontrado")
+
+# ==================== RUTAS DE TEXTOS BÍBLICOS ====================
+
+@router.get("/api/admin/textos")
+async def get_textos(busqueda: str = ""):
+    """Obtiene todos los textos bíblicos o busca por término."""
+    return buscar_textos_biblicos(busqueda)

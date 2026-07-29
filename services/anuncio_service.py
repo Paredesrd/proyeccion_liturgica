@@ -14,6 +14,7 @@ def obtener_anuncios_activos():
                     "id": a.id,
                     "titulo": a.titulo,
                     "contenido": a.contenido,
+                    "color": a.color,
                     "activo": a.activo
                 }
                 for a in anuncios
@@ -33,6 +34,7 @@ def obtener_todos_anuncios():
                     "id": a.id,
                     "titulo": a.titulo,
                     "contenido": a.contenido,
+                    "color": a.color,
                     "activo": a.activo
                 }
                 for a in anuncios
@@ -42,7 +44,7 @@ def obtener_todos_anuncios():
         return []
 
 
-def crear_anuncio(titulo: str, contenido: str, activo: bool = True):
+def crear_anuncio(titulo: str, contenido: str, activo: bool = True, color: str = "#3498db"):
     """Crea un nuevo anuncio con validación."""
     try:
         with SessionLocal() as db:
@@ -51,7 +53,7 @@ def crear_anuncio(titulo: str, contenido: str, activo: bool = True):
             if not contenido or not contenido.strip():
                 raise ValueError("El contenido no puede estar vacío")
             
-            nuevo = Anuncio(titulo=titulo.strip(), contenido=contenido.strip(), activo=activo)
+            nuevo = Anuncio(titulo=titulo.strip(), contenido=contenido.strip(), activo=activo, color=color)
             db.add(nuevo)
             db.commit()
             db.refresh(nuevo)
@@ -59,6 +61,7 @@ def crear_anuncio(titulo: str, contenido: str, activo: bool = True):
                 "id": nuevo.id,
                 "titulo": nuevo.titulo,
                 "contenido": nuevo.contenido,
+                "color": nuevo.color,
                 "activo": nuevo.activo
             }
     except ValueError as e:
@@ -68,7 +71,7 @@ def crear_anuncio(titulo: str, contenido: str, activo: bool = True):
         raise
 
 
-def actualizar_anuncio(id: int, titulo: str = None, contenido: str = None, activo: bool = None):
+def actualizar_anuncio(id: int, titulo: str = None, contenido: str = None, color: str = None, activo: bool = None):
     """Actualiza un anuncio existente."""
     try:
         with SessionLocal() as db:
@@ -86,6 +89,9 @@ def actualizar_anuncio(id: int, titulo: str = None, contenido: str = None, activ
                     raise ValueError("El contenido no puede estar vacío")
                 anuncio.contenido = contenido.strip()
             
+            if color is not None:
+                anuncio.color = color
+            
             if activo is not None:
                 anuncio.activo = activo
             
@@ -95,6 +101,7 @@ def actualizar_anuncio(id: int, titulo: str = None, contenido: str = None, activ
                 "id": anuncio.id,
                 "titulo": anuncio.titulo,
                 "contenido": anuncio.contenido,
+                "color": anuncio.color,
                 "activo": anuncio.activo
             }
     except ValueError as e:

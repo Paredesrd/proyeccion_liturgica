@@ -5,7 +5,7 @@ import logging
 from services.bible_service import buscar_versiculo, obtener_todos_los_libros, obtener_capitulos
 from services.birthday_service import obtener_cumpleanos_rango
 from services.anuncio_service import obtener_anuncios_activos
-from services.ofrenda_service import crear_ofrenda, obtener_total_ofrendas
+from services.ofrenda_service import crear_ofrenda
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -123,17 +123,15 @@ async def get_projection_anuncios():
     return {"anuncios": obtener_anuncios_activos()}
 
 @router.post("/api/projection/ofrenda")
-async def register_ofrenda(tipo: str, monto: int = None, descripcion: str = None, anonima: bool = False):
+async def register_ofrenda(concepto: str, monto: float = None, fecha: str = None):
     """Registra una ofrenda y opcionalmente la proyecta."""
+    from datetime import date
+    if not fecha:
+        fecha = date.today().strftime("%Y-%m-%d")
     try:
-        resultado = crear_ofrenda(tipo, monto, descripcion, anonima=anonima)
+        resultado = crear_ofrenda(concepto, monto, fecha)
         return resultado
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error al registrar ofrenda")
-
-@router.get("/api/projection/ofrendas/total")
-async def get_ofrendas_total():
-    """Obtiene el total de ofrendas."""
-    return obtener_total_ofrendas()

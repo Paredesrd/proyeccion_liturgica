@@ -12,6 +12,7 @@ class Anuncio(Base):
     id = Column(Integer, primary_key=True, index=True)
     titulo = Column(String, nullable=False)
     contenido = Column(Text, nullable=False)
+    color = Column(String, default="#3498db")  # Color del anuncio
     activo = Column(Boolean, default=True)
 
 class TextoBiblico(Base):
@@ -24,8 +25,6 @@ class TextoBiblico(Base):
 class Ofrenda(Base):
     __tablename__ = "ofrendas"
     id = Column(Integer, primary_key=True, index=True)
-    tipo = Column(String, nullable=False)  # "Diezmo", "Ofrenda", "Primicias"
-    monto = Column(Integer, nullable=True)  # Null si es ofrenda en especie
-    descripcion = Column(Text, nullable=True)
+    concepto = Column(String, nullable=False)  # Concepto de la ofrenda
+    monto = Column(Integer, nullable=False)  # Monto en centavos o unidad entera
     fecha = Column(Date, nullable=False)
-    anonima = Column(Boolean, default=False)

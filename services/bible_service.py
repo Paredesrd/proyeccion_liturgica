@@ -82,3 +82,32 @@ def obtener_capitulos(libro: str):
     except Exception as e:
         print(f"Error al obtener capítulos: {e}")
         return []
+
+
+def buscar_textos_biblicos(busqueda: str = ""):
+    """Busca textos bíblicos en la base de datos por término o muestra todos."""
+    try:
+        with SessionLocal() as db:
+            if busqueda and busqueda.strip():
+                # Búsqueda por término en referencia o texto
+                termino = f"%{busqueda.strip()}%"
+                resultados = db.query(TextoBiblico).filter(
+                    (TextoBiblico.referencia.ilike(termino)) |
+                    (TextoBiblico.texto.ilike(termino))
+                ).all()
+            else:
+                # Mostrar todos
+                resultados = db.query(TextoBiblico).all()
+            
+            return [
+                {
+                    "id": r.id,
+                    "referencia": r.referencia,
+                    "texto": r.texto,
+                    "version": r.version
+                }
+                for r in resultados
+            ]
+    except Exception as e:
+        print(f"Error al buscar textos bíblicos: {e}")
+        return []
