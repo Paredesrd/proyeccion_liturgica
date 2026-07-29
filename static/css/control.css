@@ -68,6 +68,85 @@ body {
 
 .control-panel-details h2 { margin-bottom: 1rem; color: var(--primary-color); }
 
+/* Nuevos estilos para controles dinámicos */
+.control-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.btn-primary {
+    padding: 0.8rem 1.5rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-primary:hover { background-color: #2563eb; }
+
+.btn-secondary {
+    padding: 0.8rem 1.5rem;
+    background-color: #4b5563;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-secondary:hover { background-color: #374151; }
+
+.btn-success {
+    padding: 0.8rem 1.5rem;
+    background-color: var(--active-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-success:hover { background-color: #059669; }
+
+.form-select, .form-input {
+    padding: 0.8rem 1rem;
+    font-size: 1rem;
+    border: 2px solid #333;
+    border-radius: 6px;
+    background-color: #2d2d2d;
+    color: white;
+}
+
+.form-select:focus, .form-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.bible-preview, .birthday-preview, .anuncios-preview {
+    background-color: #2d2d2d;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+    min-height: 80px;
+    font-style: italic;
+    white-space: pre-line;
+}
+
+.bible-preview.loading { color: #9ca3af; }
+.bible-preview.success { color: #10b981; border-left: 4px solid #10b981; }
+.bible-preview.error { color: #ef4444; border-left: 4px solid #ef4444; }
+.bible-preview.warning { color: #f59e0b; border-left: 4px solid #f59e0b; }
+
+.success-text { color: #10b981; font-weight: bold; }
+.info-text { color: #9ca3af; }
+
 .emergency-controls {
     display: flex;
     gap: 1rem;

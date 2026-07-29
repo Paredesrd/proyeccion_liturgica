@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Text
+from sqlalchemy import Column, Integer, String, Date, Text, Boolean
 from database.connection import Base
 
 class Cumpleanos(Base):
@@ -12,4 +12,20 @@ class Anuncio(Base):
     id = Column(Integer, primary_key=True, index=True)
     titulo = Column(String, nullable=False)
     contenido = Column(Text, nullable=False)
-    activo = Column(Integer, default=1) # 1 para activo, 0 para inactivo
+    activo = Column(Boolean, default=True)
+
+class TextoBiblico(Base):
+    __tablename__ = "textos_biblicos"
+    id = Column(Integer, primary_key=True, index=True)
+    referencia = Column(String, index=True, nullable=False)  # Ej: "Juan 3:16"
+    texto = Column(Text, nullable=False)
+    version = Column(String, default="RVR1960")
+
+class Ofrenda(Base):
+    __tablename__ = "ofrendas"
+    id = Column(Integer, primary_key=True, index=True)
+    tipo = Column(String, nullable=False)  # "Diezmo", "Ofrenda", "Primicias"
+    monto = Column(Integer, nullable=True)  # Null si es ofrenda en especie
+    descripcion = Column(Text, nullable=True)
+    fecha = Column(Date, nullable=False)
+    anonima = Column(Boolean, default=False)
