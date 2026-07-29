@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control Litúrgico</title>
+    <link rel="stylesheet" href="/static/css/control.css">
+</head>
+<body>
+    <header class="control-header">
+        <h1>🎛️ Control de Proyección</h1>
+        <div id="connection-status" class="status-disconnected">Desconectado</div>
+    </header>
+
+    <main class="control-grid">
+        <button class="module-btn" data-module="inicializacion" onclick="activateModule('inicializacion')">
+            <span class="icon">⏱️</span>
+            <span class="label">Inicialización</span>
+        </button>
+        <button class="module-btn" data-module="alabanzas" onclick="activateModule('alabanzas')">
+            <span class="icon">🎵</span>
+            <span class="label">Alabanzas</span>
+        </button>
+        <button class="module-btn" data-module="saludos" onclick="activateModule('saludos')">
+            <span class="icon">👋</span>
+            <span class="label">Saludos</span>
+        </button>
+        <button class="module-btn" data-module="predica" onclick="activateModule('predica')">
+            <span class="icon">📖</span>
+            <span class="label">Prédica</span>
+        </button>
+        <button class="module-btn" data-module="cenia" onclick="activateModule('cenia')">
+            <span class="icon">🍷</span>
+            <span class="label">Santa Cena</span>
+        </button>
+        <button class="module-btn" data-module="cumpleanos" onclick="activateModule('cumpleanos')">
+            <span class="icon">🎂</span>
+            <span class="label">Cumpleaños</span>
+        </button>
+        <button class="module-btn" data-module="anuncios" onclick="activateModule('anuncios')">
+            <span class="icon">📢</span>
+            <span class="label">Anuncios</span>
+        </button>
+        <button class="module-btn" data-module="ofrendas" onclick="activateModule('ofrendas')">
+            <span class="icon">💰</span>
+            <span class="label">Ofrendas</span>
+        </button>
+    </main>
+
+    <section class="control-panel-details" id="details-panel">
+        <h2>Controles del Módulo Activo: <span id="active-module-name">Ninguno</span></h2>
+        <div id="dynamic-controls">
+            <p>Seleccione un módulo para mostrar sus controles específicos.</p>
+        </div>
+        <div class="emergency-controls">
+            <button class="btn-danger" onclick="sendCommand('blackout', {})">🔴 Pantalla Negra (Emergencia)</button>
+            <button class="btn-warning" onclick="sendCommand('clear', {})">🧹 Limpiar Proyección</button>
+        </div>
+    </section>
+
+    <script src="/static/js/control.js"></script>
+</body>
+</html>

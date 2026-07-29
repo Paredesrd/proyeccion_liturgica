@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración Litúrgica</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <header class="admin-header">
+        <h1>🛠️ Panel de Administración</h1>
+        <nav>
+            <a href="/" class="nav-link">Ir a Control</a>
+        </nav>
+    </header>
+
+    <main class="admin-container">
+        <section class="module-section">
+            <h2>🎂 Gestión de Cumpleaños</h2>
+            <form id="form-cumpleanos" class="admin-form">
+                <input type="text" id="input-nombre" placeholder="Nombre completo" required>
+                <input type="date" id="input-fecha" required>
+                <button type="submit" class="btn-primary">Agregar</button>
+            </form>
+            <div class="table-container">
+                <table id="tabla-cumpleanos">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Fecha</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/js/admin.js"></script>
+</body>
+</html>
