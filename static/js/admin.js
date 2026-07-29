@@ -245,7 +245,10 @@ function renderizarTablaTextos(data) {
     const tbody = document.querySelector('#tabla-textos tbody');
     tbody.innerHTML = '';
 
-    data.forEach(item => {
+    // Mostrar solo los primeros 50 para no saturar
+    const mostrar = data.slice(0, 50);
+    
+    mostrar.forEach(item => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><strong>${item.referencia}</strong></td>
@@ -254,22 +257,28 @@ function renderizarTablaTextos(data) {
         `;
         tbody.appendChild(tr);
     });
+    
+    if (data.length > 50) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="3" style="text-align:center;"><em>... y ${data.length - 50} textos más. Usa el buscador.</em></td>`;
+        tbody.appendChild(tr);
+    }
 }
 
 async function buscarTextoBiblico() {
     const busqueda = document.getElementById('input-buscar-texto').value.trim();
-    if (!busqueda) {
-        alert('Ingresa un término de búsqueda');
-        return;
-    }
-
+    
     try {
-        const response = await fetch(`/api/admin/textos?busqueda=${encodeURIComponent(busqueda)}`);
+        const url = busqueda 
+            ? `/api/admin/textos?busqueda=${encodeURIComponent(busqueda)}`
+            : '/api/admin/textos';
+            
+        const response = await fetch(url);
         const data = await response.json();
         renderizarTablaTextos(data);
-        document.getElementById('total-textos').textContent = data.length;
+        document.getElementById('total-textos').textContent = `${data.length} ${busqueda ? '(resultado de búsqueda)' : 'disponibles'}`;
         
-        if (data.length === 0) {
+        if (data.length === 0 && busqueda) {
             alert('No se encontraron textos que coincidan con "' + busqueda + '"');
         }
     } catch (error) {
