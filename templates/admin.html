@@ -15,6 +15,7 @@
     </header>
 
     <main class="admin-container">
+        <!-- SECCIÓN CUMPLEAÑOS -->
         <section class="module-section">
             <h2>🎂 Gestión de Cumpleaños</h2>
             <form id="form-cumpleanos" class="admin-form">
@@ -34,6 +35,86 @@
                     <tbody></tbody>
                 </table>
             </div>
+        </section>
+
+        <!-- SECCIÓN ANUNCIOS -->
+        <section class="module-section">
+            <h2>📢 Gestión de Anuncios</h2>
+            <form id="form-anuncios" class="admin-form">
+                <input type="text" id="input-anuncio-titulo" placeholder="Título del anuncio" required>
+                <textarea id="input-anuncio-contenido" placeholder="Contenido del anuncio" rows="3" required></textarea>
+                <select id="input-anuncio-color">
+                    <option value="#3498db">Azul</option>
+                    <option value="#2ecc71">Verde</option>
+                    <option value="#e74c3c">Rojo</option>
+                    <option value="#f39c12">Naranja</option>
+                    <option value="#9b59b6">Morado</option>
+                </select>
+                <button type="submit" class="btn-primary">Agregar Anuncio</button>
+            </form>
+            <div class="table-container">
+                <table id="tabla-anuncios">
+                    <thead>
+                        <tr>
+                            <th>Título</th>
+                            <th>Contenido</th>
+                            <th>Color</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECCIÓN OFRENDAS -->
+        <section class="module-section">
+            <h2>💰 Registro de Ofrendas</h2>
+            <form id="form-ofrendas" class="admin-form">
+                <input type="text" id="input-ofrenda-concepto" placeholder="Concepto (ej: Diezmos, Ofrenda Voluntaria)" required>
+                <input type="number" id="input-ofrenda-monto" placeholder="Monto" step="0.01" min="0" required>
+                <input type="date" id="input-ofrenda-fecha" required>
+                <button type="submit" class="btn-primary">Registrar Ofrenda</button>
+            </form>
+            <div class="table-container">
+                <table id="tabla-ofrendas">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Concepto</th>
+                            <th>Monto</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div class="total-ofrendas">
+                    <strong>Total Acumulado: $<span id="total-ofrendas">0.00</span></strong>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN TEXTOS BÍBLICOS -->
+        <section class="module-section">
+            <h2>📖 Gestión de Textos Bíblicos</h2>
+            <p class="info-text">ℹ️ Los textos bíblicos se cargan automáticamente desde la base de datos interna. Aquí puedes buscar y verificar los textos disponibles.</p>
+            <div class="busqueda-biblica">
+                <input type="text" id="input-buscar-texto" placeholder="Buscar por libro, capítulo o versículo (ej: Juan 3:16)">
+                <button onclick="buscarTextoBiblico()" class="btn-secondary">Buscar</button>
+            </div>
+            <div class="table-container">
+                <table id="tabla-textos">
+                    <thead>
+                        <tr>
+                            <th>Referencia</th>
+                            <th>Texto</th>
+                            <th>Versión</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <p class="info-text">Total de textos disponibles: <span id="total-textos">0</span></p>
         </section>
     </main>
 

@@ -1,5 +1,6 @@
 let ws = null;
 
+// Elementos DOM cacheados
 const bgImage = document.getElementById('bg-image');
 const bgVideo = document.getElementById('bg-video');
 const bgSolidColor = document.getElementById('bg-solid-color');
@@ -9,6 +10,7 @@ const lyricsContainer = document.getElementById('lyrics-container');
 const birthdayList = document.getElementById('birthday-list');
 const bgAudio = document.getElementById('bg-audio');
 const blackoutLayer = document.getElementById('blackout-layer');
+const contentLayer = document.getElementById('content-layer');
 
 function connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -16,8 +18,12 @@ function connectWebSocket() {
 
     ws = new WebSocket(wsUrl);
 
-    ws.onopen = () => console.log('Proyector conectado al servidor de control.');
-    ws.onclose = () => setTimeout(connectWebSocket, 3000);
+    ws.onopen = () => console.log('✅ Proyector conectado al servidor de control.');
+    ws.onclose = () => {
+        console.warn('⚠️ Proyector desconectado. Reconectando...');
+        setTimeout(connectWebSocket, 3000);
+    };
+    ws.onerror = (error) => console.error('❌ Error en WebSocket del proyector:', error);
 
     ws.onmessage = (event) => {
         try {
@@ -29,6 +35,8 @@ function connectWebSocket() {
 }
 
 function executeCommand(cmd) {
+    console.log('📥 Comando recibido:', cmd.action, cmd);
+    
     switch (cmd.action) {
         case 'set_module':
             clearContent();
@@ -41,50 +49,11 @@ function executeCommand(cmd) {
             break;
 
         case 'show_bible_verse':
-            hideAllBackgrounds();
-            bgSolidColor.style.backgroundColor = '#0a0a0a'; // Fondo casi negro elegante
-            bgSolidColor.style.display = 'block';
-
-            mainTitle.textContent = cmd.reference;
-            mainTitle.style.color = '#fbbf24'; // Color dorado para la referencia
-            mainTitle.style.fontSize = '4rem';
-
-            mainText.textContent = `"${cmd.text}"`;
-            mainText.style.fontSize = '2.8rem';
-            mainText.style.lineHeight = '1.5';
-            mainText.style.fontWeight = '300';
-            mainText.style.whiteSpace = 'pre-line';
-
-            // Pequeña etiqueta de versión
-            const versionLabel = document.createElement('div');
-            versionLabel.textContent = cmd.version;
-            versionLabel.style.position = 'absolute';
-            versionLabel.style.bottom = '40px';
-            versionLabel.style.right = '60px';
-            versionLabel.style.fontSize = '1.5rem';
-            versionLabel.style.color = '#666';
-            versionLabel.style.fontStyle = 'italic';
-
-            // Limpiar etiquetas anteriores si existen
-            const oldLabel = document.getElementById('bible-version-label');
-            if (oldLabel) oldLabel.remove();
-            versionLabel.id = 'bible-version-label';
-            document.getElementById('content-layer').appendChild(versionLabel);
+            showBibleVerse(cmd.reference, cmd.text, cmd.version);
             break;
 
         case 'set_background':
-            hideAllBackgrounds();
-            if (cmd.type === 'image') {
-                bgImage.src = cmd.src;
-                bgImage.style.display = 'block';
-            } else if (cmd.type === 'video') {
-                bgVideo.src = cmd.src;
-                bgVideo.style.display = 'block';
-                bgVideo.play().catch(e => console.error('Error video:', e));
-            } else if (cmd.type === 'color') {
-                bgSolidColor.style.backgroundColor = cmd.color || '#000';
-                bgSolidColor.style.display = 'block';
-            }
+            setBackground(cmd.type, cmd.src, cmd.color);
             break;
 
         case 'play_media':
@@ -101,13 +70,11 @@ function executeCommand(cmd) {
             break;
 
         case 'load_birthdays':
-            birthdayList.innerHTML = `
-                <div class="birthday-item">🎉 Juan Pérez - Hoy</div>
-                <div class="birthday-item">🎉 María García - Mañana</div>
-            `;
-            mainTitle.textContent = '¡Feliz Cumpleaños!';
-            mainTitle.style.color = '#ffffff';
-            mainText.textContent = '';
+            loadBirthdaysToDisplay(cmd.birthdays || []);
+            break;
+
+        case 'load_anuncios':
+            loadAnunciosToDisplay(cmd.anuncios || []);
             break;
 
         case 'blackout':
@@ -125,11 +92,110 @@ function executeCommand(cmd) {
     }
 }
 
+function showBibleVerse(reference, text, version) {
+    hideAllBackgrounds();
+    bgSolidColor.style.backgroundColor = '#0a0a0a';
+    bgSolidColor.style.display = 'block';
+
+    mainTitle.textContent = reference;
+    mainTitle.style.color = '#fbbf24';
+    mainTitle.style.fontSize = '4rem';
+
+    mainText.textContent = `"${text}"`;
+    mainText.style.fontSize = '2.8rem';
+    mainText.style.lineHeight = '1.5';
+    mainText.style.fontWeight = '300';
+    mainText.style.whiteSpace = 'pre-line';
+
+    // Eliminar etiqueta de versión anterior si existe
+    const oldLabel = document.getElementById('bible-version-label');
+    if (oldLabel) oldLabel.remove();
+
+    // Crear nueva etiqueta de versión
+    const versionLabel = document.createElement('div');
+    versionLabel.id = 'bible-version-label';
+    versionLabel.textContent = version || 'RVR1960';
+    versionLabel.style.position = 'absolute';
+    versionLabel.style.bottom = '40px';
+    versionLabel.style.right = '60px';
+    versionLabel.style.fontSize = '1.5rem';
+    versionLabel.style.color = '#666';
+    versionLabel.style.fontStyle = 'italic';
+
+    contentLayer.appendChild(versionLabel);
+}
+
+function setBackground(type, src, color) {
+    hideAllBackgrounds();
+    
+    if (type === 'image' && src) {
+        bgImage.src = src;
+        bgImage.style.display = 'block';
+    } else if (type === 'video' && src) {
+        bgVideo.src = src;
+        bgVideo.style.display = 'block';
+        bgVideo.play().catch(e => console.error('Error video:', e));
+    } else if (type === 'color') {
+        bgSolidColor.style.backgroundColor = color || '#000';
+        bgSolidColor.style.display = 'block';
+    }
+}
+
+function loadBirthdaysToDisplay(birthdays) {
+    if (!birthdays || birthdays.length === 0) {
+        birthdayList.innerHTML = '<p class="no-data">No hay cumpleaños esta semana</p>';
+        mainTitle.textContent = '¡Feliz Cumpleaños!';
+        mainText.textContent = '';
+        return;
+    }
+
+    // Limpiar contenido previo
+    mainTitle.textContent = '🎉 ¡Feliz Cumpleaños!';
+    mainTitle.style.color = '#ffffff';
+    mainText.textContent = '';
+    birthdayList.innerHTML = '';
+
+    // Crear elementos para cada cumpleaños
+    birthdays.forEach(cumple => {
+        const item = document.createElement('div');
+        item.className = 'birthday-item';
+        
+        let emoji = '🎂';
+        let label = '';
+        
+        if (cumple.es_hoy) {
+            emoji = '🎉';
+            label = ' - ¡HOY!';
+        } else if (cumple.es_manana) {
+            emoji = '🎈';
+            label = ' - Mañana';
+        }
+        
+        item.innerHTML = `${emoji} <strong>${cumple.nombre}</strong>${label} (${cumple.fecha})`;
+        birthdayList.appendChild(item);
+    });
+}
+
+function loadAnunciosToDisplay(anuncios) {
+    if (!anuncios || anuncios.length === 0) {
+        mainTitle.textContent = '📢 Anuncios';
+        mainText.textContent = 'No hay anuncios activos';
+        return;
+    }
+
+    // Mostrar el primer anuncio activo
+    const anuncio = anuncios[0];
+    mainTitle.textContent = '📢 ' + (anuncio.titulo || 'Anuncio');
+    mainText.textContent = anuncio.contenido || '';
+    mainText.style.whiteSpace = 'pre-line';
+}
+
 function clearContent() {
     mainTitle.textContent = '';
     mainText.textContent = '';
     lyricsContainer.innerHTML = '';
     birthdayList.innerHTML = '';
+    
     const oldLabel = document.getElementById('bible-version-label');
     if (oldLabel) oldLabel.remove();
 }

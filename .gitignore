@@ -1,20 +1,53 @@
-# Entornos virtuales
+```
+# Database files
+*.db
+
+# Environment files
+.env
+.env.local
+*.env.*
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Dependencies
+node_modules/
 .venv/
 venv/
-env/
-
-# Caché compilada de Python
 __pycache__/
-*.py[cod]
-*$py.class
+.mypy_cache/
+.pytest_cache/
+dist/
+build/
+target/
+.gradle/
 
-# Configuración del IDE (PyCharm)
+# Editors
+.vscode/
 .idea/
 
-# Base de datos local (¡Crítico!)
-*.db
-*.sqlite3
-*.sqlite
+# OS
+.DS_Store
+Thumbs.db
 
-# Archivos de auditoría/temporales
-audit_git.py
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Compiled files
+*.pyc
+*.class
+*.o
+*.exe
+*.dll
+*.so
+*.a
+*.obj
+*.out
+```
