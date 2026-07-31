@@ -16,11 +16,20 @@
 
     <main class="admin-container">
         <section class="module-section">
+            <h2>🖼️ Gestión de Fondos Multimedia</h2>
+            <form id="form-fondos" class="admin-form">
+                <input type="file" id="input-bg-file" accept="video/*, image/*" required>
+                <button type="submit" class="btn-primary" id="btn-upload-bg">Subir Fondo a Base de Datos</button>
+            </form>
+            <div id="upload-status" style="margin-top: 10px; font-weight: bold;"></div>
+        </section>
+
+        <section class="module-section">
             <h2>🎂 Gestión de Cumpleaños</h2>
             <form id="form-cumpleanos" class="admin-form">
                 <input type="text" id="input-nombre" placeholder="Nombre completo" required>
                 <input type="date" id="input-fecha" required>
-                <button type="submit" class="btn-primary">Agregar</button>
+                <button type="submit" class="btn-primary">Agregar Cumpleaños</button>
             </form>
             <div class="table-container">
                 <table id="tabla-cumpleanos">
@@ -35,8 +44,101 @@
                 </table>
             </div>
         </section>
+
+        <section class="module-section">
+            <h2>📢 Gestión de Anuncios</h2>
+            <form id="form-anuncios" class="admin-form">
+                <input type="text" id="input-titulo-anuncio" placeholder="Título (Ej. Estudio Bíblico)" required>
+                <input type="text" id="input-contenido-anuncio" placeholder="Contenido (Ej. Miércoles 6:30 PM - Sala 2)" required>
+                <button type="submit" class="btn-primary">Agregar Anuncio</button>
+            </form>
+            <div class="table-container">
+                <table id="tabla-anuncios">
+                    <thead>
+                        <tr>
+                            <th>Título</th>
+                            <th>Contenido</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="module-section">
+            <h2>🎵 Gestión de Cancionero y Setlist del Día</h2>
+            <form id="form-canciones" class="admin-form" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
+                <div style="display: flex; gap: 1rem;">
+                    <input type="text" id="input-titulo-cancion" placeholder="Añadir Nueva Canción al Catálogo (Título)" required style="flex: 1;">
+                </div>
+                <textarea id="input-letra-cancion" placeholder="Pegue aquí la letra completa de la canción..." rows="4" style="padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px; font-family: monospace; resize: vertical;" required></textarea>
+                <button type="submit" class="btn-primary" style="align-self: flex-start;">💾 Guardar Canción en Base de Datos</button>
+            </form>
+
+            <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+                <!-- Panel de Catálogo General -->
+                <div style="flex: 1; min-width: 300px; border: 1px solid var(--border-color); padding: 15px; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #fbbf24; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">📚 Catálogo General</h3>
+                    <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                        <table id="tabla-canciones">
+                            <thead>
+                                <tr>
+                                    <th>Título</th>
+                                    <th style="width: 170px;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Panel de Setlist de Hoy -->
+                <div style="flex: 1; min-width: 300px; border: 2px solid #10b981; padding: 15px; border-radius: 8px; background: rgba(16, 185, 129, 0.05);">
+                    <h3 style="margin-top: 0; color: #10b981; border-bottom: 1px solid #10b981; padding-bottom: 10px;">📋 Setlist del Servicio</h3>
+                    <div class="table-container" style="max-height: 350px; overflow-y: auto;">
+                        <table id="tabla-setlist">
+                            <thead>
+                                <tr>
+                                    <th>Orden de Ejecución</th>
+                                    <th style="width: 80px;">Quitar</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <button class="btn-primary" style="width: 100%; margin-top: 15px; font-size: 1.1em; background-color: #10b981;" onclick="guardarSetlistEnServidor()">✅ Publicar Setlist en Control</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN DE BOSQUEJO NATIVO -->
+        <section class="module-section" style="border-left: 5px solid #3b82f6;">
+            <h2 style="color: #3b82f6;">📖 Gestión de Bosquejo (Prédica)</h2>
+            <form id="form-bosquejo" class="admin-form" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
+                <input type="text" id="input-titulo-slide" placeholder="Título de la Diapositiva (Ej. 1. La Gracia)" required>
+                <textarea id="input-contenido-slide" placeholder="Puntos a proyectar (use guiones para viñetas)..." rows="3" style="padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px; font-family: monospace; margin-top: 10px;" required></textarea>
+                <button type="submit" class="btn-primary" style="margin-top: 10px; align-self: flex-start;">➕ Añadir Diapositiva al Bosquejo</button>
+            </form>
+
+            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                <table id="tabla-bosquejo">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>Título</th>
+                            <th>Contenido</th>
+                            <th style="width: 100px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <button class="btn-primary" style="width: 100%; margin-top: 15px; background-color: #3b82f6;" onclick="guardarBosquejoEnServidor()">📤 Publicar Bosquejo en Control</button>
+        </section>
     </main>
 
-    <script src="/static/js/admin.js"></script>
+    <script type="module" src="/static/js/admin.js?v=13"></script>
 </body>
 </html>

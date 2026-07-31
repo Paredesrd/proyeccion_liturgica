@@ -17,15 +17,22 @@ class Anuncio(Base):
 class TextoBiblico(Base):
     __tablename__ = "textos_biblicos"
     id = Column(Integer, primary_key=True, index=True)
-    referencia = Column(String, index=True, nullable=False)  # Ej: "Juan 3:16"
+    referencia = Column(String, index=True, nullable=False)
     texto = Column(Text, nullable=False)
     version = Column(String, default="RVR1960")
 
 class Ofrenda(Base):
     __tablename__ = "ofrendas"
     id = Column(Integer, primary_key=True, index=True)
-    tipo = Column(String, nullable=False)  # "Diezmo", "Ofrenda", "Primicias"
-    monto = Column(Integer, nullable=True)  # Null si es ofrenda en especie
+    tipo = Column(String, nullable=False)
+    monto = Column(Integer, nullable=True)
     descripcion = Column(Text, nullable=True)
     fecha = Column(Date, nullable=False)
     anonima = Column(Boolean, default=False)
+
+class Cancion(Base):
+    __tablename__ = "canciones"
+    id = Column(Integer, primary_key=True, index=True)
+    titulo = Column(String, index=True, nullable=False)
+    autor = Column(String, nullable=True)
+    letra = Column(Text, nullable=False)

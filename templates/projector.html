@@ -4,17 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Salida de Proyección</title>
-    <link rel="stylesheet" href="/static/css/projector.css">
+    <!-- Tipografía Inter: ultra limpia, elegante y de máxima legibilidad -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/projector.css?v=103">
 </head>
 <body>
-    <!-- Capa 1: Fondo (Video o Imagen) -->
     <div id="background-layer" class="layer">
         <img id="bg-image" src="" alt="" style="display: none; width: 100%; height: 100%; object-fit: cover;">
-        <video id="bg-video" loop playsinline style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
+        <video id="bg-video" loop muted playsinline style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
         <div id="bg-solid-color" style="width: 100%; height: 100%; background-color: #000;"></div>
     </div>
 
-    <!-- Capa 2: Contenido Principal (Texto, Letras, Anuncios) -->
     <div id="content-layer" class="layer">
         <h1 id="main-title"></h1>
         <p id="main-text"></p>
@@ -22,12 +22,10 @@
         <div id="birthday-list"></div>
     </div>
 
-    <!-- Capa 3: Audio (Música de fondo, efectos) -->
     <audio id="bg-audio" loop></audio>
 
-    <!-- Capa 4: Overlay de Pantalla Negra -->
     <div id="blackout-layer" class="layer" style="display: none; background-color: #000; z-index: 999;"></div>
 
-    <script src="/static/js/projector.js"></script>
+    <script type="module" src="/static/js/projector.js?v=12"></script>
 </body>
 </html>

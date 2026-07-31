@@ -2,7 +2,6 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPExcept
 from fastapi.responses import JSONResponse
 import logging
 
-from services.bible_service import buscar_versiculo, obtener_todos_los_libros, obtener_capitulos
 from services.birthday_service import obtener_cumpleanos_rango
 from services.anuncio_service import obtener_anuncios_activos
 from services.ofrenda_service import crear_ofrenda, obtener_total_ofrendas
@@ -13,25 +12,28 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
 class ConnectionManager:
     """Gestiona las conexiones WebSocket para sincronización en tiempo real."""
+
     def __init__(self):
-        self.projector_ws: WebSocket | None = None
+        self.projector_clients: list[WebSocket] = []
         self.control_clients: list[WebSocket] = []
 
     async def connect_projector(self, websocket: WebSocket):
         await websocket.accept()
-        self.projector_ws = websocket
-        logger.info("Proyector conectado")
+        self.projector_clients.append(websocket)
+        logger.info(f"Proyector/Monitor conectado. Total: {len(self.projector_clients)}")
 
     async def connect_control(self, websocket: WebSocket):
         await websocket.accept()
         self.control_clients.append(websocket)
         logger.info(f"Cliente de control conectado. Total: {len(self.control_clients)}")
 
-    def disconnect_projector(self):
-        self.projector_ws = None
-        logger.info("Proyector desconectado")
+    def disconnect_projector(self, websocket: WebSocket):
+        if websocket in self.projector_clients:
+            self.projector_clients.remove(websocket)
+        logger.info(f"Proyector/Monitor desconectado. Total: {len(self.projector_clients)}")
 
     def disconnect_control(self, websocket: WebSocket):
         if websocket in self.control_clients:
@@ -39,24 +41,27 @@ class ConnectionManager:
         logger.info(f"Cliente de control desconectado. Total: {len(self.control_clients)}")
 
     async def send_to_projector(self, message: dict):
-        """Envía un mensaje al proyector."""
-        if self.projector_ws:
+        """Envía un mensaje a todos los proyectores y monitores activos."""
+        for client in self.projector_clients[:]:
             try:
-                await self.projector_ws.send_json(message)
+                await client.send_json(message)
             except Exception as e:
-                logger.error(f"Error al enviar al proyector: {e}")
-                self.disconnect_projector()
+                logger.error(f"Error al enviar al proyector/monitor: {e}")
+                self.disconnect_projector(client)
 
     async def broadcast_to_controls(self, message: dict):
         """Difunde un mensaje a todos los clientes de control."""
-        for client in self.control_clients[:]:  # Copia para evitar problemas si se desconectan
+        for client in self.control_clients[:]:
             try:
                 await client.send_json(message)
             except Exception:
                 self.control_clients.remove(client)
 
+
 manager = ConnectionManager()
 
+
+# Las conexiones WebSocket REQUIEREN obligatoriamente async
 @router.websocket("/ws/{client_type}")
 async def websocket_endpoint(websocket: WebSocket, client_type: str):
     """Endpoint WebSocket para comunicación en tiempo real."""
@@ -65,20 +70,18 @@ async def websocket_endpoint(websocket: WebSocket, client_type: str):
         try:
             while True:
                 data = await websocket.receive_json()
-                # El proyector puede enviar confirmaciones o estados
                 logger.info(f"Mensaje del proyector: {data}")
         except WebSocketDisconnect:
-            manager.disconnect_projector()
+            manager.disconnect_projector(websocket)
         except Exception as e:
             logger.error(f"Error en WebSocket del proyector: {e}")
-            manager.disconnect_projector()
-    
+            manager.disconnect_projector(websocket)
+
     elif client_type == "control":
         await manager.connect_control(websocket)
         try:
             while True:
                 data = await websocket.receive_json()
-                # Reenviar comandos del control al proyector
                 await manager.send_to_projector(data)
         except WebSocketDisconnect:
             manager.disconnect_control(websocket)
@@ -86,44 +89,23 @@ async def websocket_endpoint(websocket: WebSocket, client_type: str):
             logger.error(f"Error en WebSocket de control: {e}")
             manager.disconnect_control(websocket)
 
-@router.get("/api/bible/search")
-async def search_bible(libro: str = Query(...), capitulo: str = Query(...), version: str = Query("RVR1960")):
-    """Busca un versículo bíblico por libro y capítulo."""
-    resultado = buscar_versiculo(libro, capitulo, version)
-    if not resultado:
-        return JSONResponse(
-            status_code=404, 
-            content={"error": "Referencia no encontrada", "disponibles": obtener_todos_los_libros()}
-        )
-    return resultado
 
-@router.get("/api/bible/books")
-async def get_bible_books():
-    """Obtiene la lista de libros bíblicos disponibles."""
-    return {"libros": obtener_todos_los_libros()}
-
-@router.get("/api/bible/chapters/{libro}")
-async def get_bible_chapters(libro: str):
-    """Obtiene los capítulos disponibles para un libro."""
-    capitulos = obtener_capitulos(libro)
-    if not capitulos:
-        return JSONResponse(status_code=404, content={"error": "Libro no encontrado"})
-    return {"capitulos": capitulos}
-
-# ==================== RUTAS DE PROYECCIÓN ====================
+# ==================== RUTAS DE PROYECCIÓN (SÍNCRONAS) ====================
 
 @router.get("/api/projection/birthdays")
-async def get_projection_birthdays():
+def get_projection_birthdays():
     """Obtiene cumpleaños de la semana para proyección."""
     return {"cumpleanos": obtener_cumpleanos_rango()}
 
+
 @router.get("/api/projection/anuncios")
-async def get_projection_anuncios():
+def get_projection_anuncios():
     """Obtiene anuncios activos para proyección."""
     return {"anuncios": obtener_anuncios_activos()}
 
+
 @router.post("/api/projection/ofrenda")
-async def register_ofrenda(tipo: str, monto: int = None, descripcion: str = None, anonima: bool = False):
+def register_ofrenda(tipo: str, monto: int = None, descripcion: str = None, anonima: bool = False):
     """Registra una ofrenda y opcionalmente la proyecta."""
     try:
         resultado = crear_ofrenda(tipo, monto, descripcion, anonima=anonima)
@@ -133,7 +115,8 @@ async def register_ofrenda(tipo: str, monto: int = None, descripcion: str = None
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error al registrar ofrenda")
 
+
 @router.get("/api/projection/ofrendas/total")
-async def get_ofrendas_total():
+def get_ofrendas_total():
     """Obtiene el total de ofrendas."""
     return obtener_total_ofrendas()

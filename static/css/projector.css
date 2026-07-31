@@ -5,59 +5,179 @@ body, html {
     height: 100vh;
     overflow: hidden;
     background-color: #000;
-    font-family: 'Segoe UI', 'Arial', sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* =========================================================
+   CAPAS Y CONTENEDOR PRINCIPAL
+   ========================================================= */
 .layer {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
+}
+
+#background-layer {
+    z-index: 1;
 }
 
 #content-layer {
     z-index: 10;
-    color: #ffffff;
-    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.9);
-    padding: 4rem;
+    width: 100%;
+    height: 100%;
+    padding: 6vh 4vw;
+    overflow-y: auto;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
 }
 
+#content-layer::before,
+#content-layer::after {
+    content: '';
+    flex: 1;
+}
+
+/*
+=========================================================
+SISTEMA DE SCROLL MAESTRO/ESCLAVO
+Oculta la barra al público, la mantiene en tu panel de control
+=========================================================
+*/
+body:not(.is-monitor) #content-layer::-webkit-scrollbar {
+    display: none;
+}
+body:not(.is-monitor) #content-layer {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Diseño de la barra (Solo visible para ti en el panel) */
+#content-layer::-webkit-scrollbar {
+    width: 12px;
+}
+#content-layer::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+}
+#content-layer::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+}
+
+/* =========================================================
+   MÓDULO: BIBLIA (Letras colosales)
+   ========================================================= */
 #main-title {
-    font-size: 5rem;
+    font-size: 9vw; /* Tamaño reventado */
     font-weight: 800;
-    margin-bottom: 2rem;
+    color: #fbbf24;
+    margin-bottom: 2vh;
     line-height: 1.1;
+    width: 100%;
+    max-width: 95%;
+    text-shadow: 0px 4px 20px rgba(0, 0, 0, 0.9), 0px 2px 8px rgba(0, 0, 0, 1);
 }
 
 #main-text {
-    font-size: 3rem;
-    font-weight: 400;
-    line-height: 1.4;
-    max-width: 80%;
+    font-size: 8vw; /* Tamaño reventado */
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.35;
+    width: 100%;
+    max-width: 95%;
+    text-shadow: 0px 4px 20px rgba(0, 0, 0, 0.9), 0px 2px 8px rgba(0, 0, 0, 1);
 }
 
+/* =========================================================
+   MÓDULO: ALABANZAS (Impacto visual masivo para 2 líneas)
+   ========================================================= */
 #lyrics-container {
-    font-size: 3.5rem;
-    font-weight: 600;
-    line-height: 1.3;
+    font-size: 13vw; /* Tamaño masivo, satura la pantalla */
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.2;
+    width: 100%;
+    max-width: 98%;
+    text-shadow: 0px 4px 20px rgba(0, 0, 0, 0.9), 0px 2px 8px rgba(0, 0, 0, 1);
 }
 
-#birthday-list {
-    font-size: 2.5rem;
+/* =========================================================
+   VARIANTE: INICIALIZACIÓN
+   ========================================================= */
+.init-layout #main-title {
+    font-size: 8vw;
+    font-weight: 900;
+    color: #ffffff;
+    margin-bottom: 2vh;
+}
+
+.init-layout #main-text {
+    font-size: 4vw;
+    font-weight: 600;
+    color: #e5e7eb;
+}
+
+/* =========================================================
+   VARIANTE: PRÉDICA (BOSQUEJO)
+   ========================================================= */
+.predica-layout {
+    align-items: flex-start !important;
+    text-align: left !important;
+    padding-top: 8vh !important;
+    padding-left: 6vw !important;
+    padding-right: 6vw !important;
+}
+
+.predica-layout #content-layer::before {
+    flex: 0;
+}
+
+.predica-layout #main-title {
+    font-size: 6vw;
+    color: #fbbf24;
     text-align: left;
-    max-width: 70%;
+    margin-bottom: 3vh;
+}
+
+.predica-layout #main-text {
+    font-size: 5vw;
+    text-align: left;
+    line-height: 1.45;
+    font-weight: 600;
+}
+
+/* =========================================================
+   OTROS MÓDULOS (Cumpleaños y vacíos)
+   ========================================================= */
+#birthday-list {
+    font-size: 5vw;
+    font-weight: 700;
+    text-align: left;
+    max-width: 90%;
+    width: 100%;
 }
 
 .birthday-item {
-    margin: 1rem 0;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    backdrop-filter: blur(4px);
+    margin: 2vh 0;
+    padding: 2vh 3vw;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.no-data {
+    font-size: 4vw;
+    color: #9ca3af;
+}
+
+#blackout-layer {
+    display: none;
+    background-color: #000;
+    z-index: 999;
 }

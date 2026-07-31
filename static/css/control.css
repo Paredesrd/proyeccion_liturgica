@@ -1,169 +1,36 @@
-:root {
-    --bg-color: #121212;
-    --surface-color: #1e1e1e;
-    --primary-color: #3b82f6;
-    --active-color: #10b981;
-    --danger-color: #ef4444;
-    --warning-color: #f59e0b;
-    --text-color: #ffffff;
+/* Animación del indicador En Vivo */
+.live-indicator {
+    animation: blinker 2s linear infinite;
+    letter-spacing: 1px;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
+@keyframes blinker {
+    50% { opacity: 0.3; }
 }
 
-.control-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 2rem;
-    background-color: var(--surface-color);
-    border-bottom: 2px solid #333;
+/* Forzar estado activo de los botones de módulo */
+.module-btn.active {
+    background-color: rgba(13, 110, 253, 0.15) !important;
+    border-color: #0dcaf0 !important;
+    color: #fff !important;
 }
 
-.status-disconnected { background-color: var(--danger-color); padding: 0.5rem 1rem; border-radius: 4px; font-weight: bold; }
-.status-connected { background-color: var(--active-color); padding: 0.5rem 1rem; border-radius: 4px; font-weight: bold; }
-
-.control-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    padding: 2rem;
-    flex: 1;
+/* Personalización de la barra de desplazamiento en la botonera */
+.overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
+}
+.overflow-y-auto::-webkit-scrollbar-track {
+    background: transparent;
+}
+.overflow-y-auto::-webkit-scrollbar-thumb {
+    background: #495057;
+    border-radius: 4px;
+}
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+    background: #6c757d;
 }
 
-.module-btn {
-    background-color: var(--surface-color);
-    border: 2px solid #333;
-    border-radius: 8px;
-    color: var(--text-color);
-    font-size: 1.2rem;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    transition: all 0.2s ease;
-}
-
-.module-btn:hover { background-color: #2d2d2d; border-color: var(--primary-color); }
-.module-btn.active { background-color: var(--primary-color); border-color: #60a5fa; transform: scale(1.02); }
-.module-btn .icon { font-size: 2.5rem; }
-
-.control-panel-details {
-    background-color: var(--surface-color);
-    padding: 1.5rem 2rem;
-    border-top: 2px solid #333;
-    min-height: 200px;
-}
-
-.control-panel-details h2 { margin-bottom: 1rem; color: var(--primary-color); }
-
-/* Nuevos estilos para controles dinámicos */
-.control-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.btn-primary {
-    padding: 0.8rem 1.5rem;
-    background-color: var(--primary-color);
-    color: white;
+/* Limpieza del Iframe y reactivación de interacción física */
+#projector-monitor {
     border: none;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.2s;
 }
-
-.btn-primary:hover { background-color: #2563eb; }
-
-.btn-secondary {
-    padding: 0.8rem 1.5rem;
-    background-color: #4b5563;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.btn-secondary:hover { background-color: #374151; }
-
-.btn-success {
-    padding: 0.8rem 1.5rem;
-    background-color: var(--active-color);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.btn-success:hover { background-color: #059669; }
-
-.form-select, .form-input {
-    padding: 0.8rem 1rem;
-    font-size: 1rem;
-    border: 2px solid #333;
-    border-radius: 6px;
-    background-color: #2d2d2d;
-    color: white;
-}
-
-.form-select:focus, .form-input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-}
-
-.bible-preview, .birthday-preview, .anuncios-preview {
-    background-color: #2d2d2d;
-    padding: 1rem;
-    border-radius: 6px;
-    margin-top: 1rem;
-    min-height: 80px;
-    font-style: italic;
-    white-space: pre-line;
-}
-
-.bible-preview.loading { color: #9ca3af; }
-.bible-preview.success { color: #10b981; border-left: 4px solid #10b981; }
-.bible-preview.error { color: #ef4444; border-left: 4px solid #ef4444; }
-.bible-preview.warning { color: #f59e0b; border-left: 4px solid #f59e0b; }
-
-.success-text { color: #10b981; font-weight: bold; }
-.info-text { color: #9ca3af; }
-
-.emergency-controls {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1.5rem;
-}
-
-.btn-danger, .btn-warning {
-    padding: 1rem 2rem;
-    font-size: 1.1rem;
-    font-weight: bold;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-}
-
-.btn-danger { background-color: var(--danger-color); }
-.btn-danger:hover { background-color: #dc2626; }
-.btn-warning { background-color: var(--warning-color); color: #000; }
-.btn-warning:hover { background-color: #d97706; }
