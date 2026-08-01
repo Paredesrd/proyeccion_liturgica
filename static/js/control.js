@@ -10,15 +10,16 @@ window.uiLoadSetlist = Worship.uiLoadSetlist;
 window.loadLiveSong = Worship.loadLiveSong;
 window.clearLiveLyrics = Worship.clearLiveLyrics;
 
-window.iniciarServicioPersonalizado = Core.iniciarServicioPersonalizado;
-window.projectSaludo = Core.projectSaludo;
+// Módulos especializados intocables
 window.uiLoadBosquejo = Core.uiLoadBosquejo;
 window.projectSlide = Core.projectSlide;
 window.uiProjectBible = Core.uiProjectBible;
-window.uiProjectBirthdays = Core.uiProjectBirthdays;
-window.uiProjectAnuncios = Core.uiProjectAnuncios;
 window.uiRegistrarOfrenda = Core.uiRegistrarOfrenda;
 window.uiMostrarTotalOfrendas = Core.uiMostrarTotalOfrendas;
+
+// Nuevo motor unificado
+window.updateStandardModuleConfig = Core.updateStandardModuleConfig;
+window.toggleModuleMute = Core.toggleModuleMute;
 
 const activeModuleNameEl = document.getElementById('active-module-name');
 const dynamicControlsEl = document.getElementById('dynamic-controls');
@@ -41,10 +42,10 @@ function activateModule(moduleName) {
 
 function getBgHtml(moduleName) {
     return `
-        <div class="card bg-black border-secondary mb-3">
+        <div class="card bg-black border-secondary mb-3 shadow-sm">
             <div class="card-header border-secondary text-secondary fw-bold small">🖼️ FONDO VISUAL DEL MÓDULO</div>
             <div class="card-body">
-                <select id="${moduleName}-bg-select" class="form-select border-secondary bg-dark text-white" onchange="applyModuleBackground('${moduleName}')">
+                <select id="${moduleName}-bg-select" class="form-select border-secondary bg-dark text-white fw-bold" onchange="applyModuleBackground('${moduleName}')">
                     <option value="">Cargando catálogo...</option>
                 </select>
             </div>
@@ -52,124 +53,107 @@ function getBgHtml(moduleName) {
     `;
 }
 
+function getStandardModuleHtml(modId, titleLabel, hasDataPreview = false) {
+    // ESTADO CERO: Valores directamente de localStorage o vacíos absolutos.
+    const title = localStorage.getItem(`${modId}_title`) || '';
+    const text = localStorage.getItem(`${modId}_text`) || '';
+    const audioName = localStorage.getItem(`${modId}_audio_name`) || 'Ninguna pista enlazada';
+    const isMuted = localStorage.getItem(`${modId}_audio_muted`) === 'true';
+
+    let html = `
+        <div class="d-flex flex-column gap-3">
+            <div class="card bg-black border-secondary shadow-sm">
+                <div class="card-header border-secondary text-secondary fw-bold small">1. PARÁMETROS DE TEXTO</div>
+                <div class="card-body">
+                    <input type="text" id="${modId}-title" placeholder="${titleLabel} (Título)" class="form-control border-secondary bg-dark text-white mb-2 fw-bold" value="${title}">
+                    <textarea id="${modId}-text" placeholder="Texto Secundario (Opcional)" class="form-control border-secondary bg-dark text-white" rows="2">${text}</textarea>
+                </div>
+            </div>
+            <div class="card bg-black border-secondary shadow-sm">
+                <div class="card-header border-secondary text-secondary fw-bold small">2. AUDIO DE FONDO</div>
+                <div class="card-body">
+                    <label for="${modId}-audio-file" class="btn btn-outline-secondary w-100 mb-1 text-start" style="cursor: pointer;">
+                        📁 Cargar o cambiar pista de audio
+                    </label>
+                    <input type="file" id="${modId}-audio-file" class="d-none" accept="audio/*" onchange="document.getElementById('${modId}-audio-filename').innerHTML = '📄 Archivo preparado (Requiere Actualizar): <br><span class=\\'text-warning\\'>' + this.files[0].name + '</span>';">
+
+                    <div id="${modId}-audio-filename" class="text-info small text-break mt-2">
+                        🎧 Pista asignada en sistema: <br><span class="text-white fw-bold">${audioName}</span>
+                    </div>
+                    <button id="btn-${modId}-mute" onclick="toggleModuleMute('${modId}')" class="btn ${isMuted ? 'btn-danger' : 'btn-success'} w-100 fw-bold mt-3 shadow-sm">
+                        ${isMuted ? '🔇 Audio Silenciado (Click para Activar)' : '🔊 Audio Activo (Click para Silenciar)'}
+                    </button>
+                </div>
+            </div>
+    `;
+
+    if (hasDataPreview) {
+        html += `
+            <div class="card bg-black border-secondary shadow-sm">
+                <div class="card-header border-secondary text-secondary fw-bold small">3. DATOS DE BASE DE DATOS</div>
+                <div class="card-body p-2 text-center" id="${modId}-preview">
+                    <span class='text-info small fw-bold'>🔍 Cargando registros del sistema...</span>
+                </div>
+            </div>
+        `;
+    }
+
+    html += `
+            <button id="btn-${modId}-update" onclick="updateStandardModuleConfig('${modId}')" class="btn btn-primary w-100 fw-bold py-3 fs-5 shadow-sm mt-2">
+                🔄 Actualizar Multimedia
+            </button>
+        </div>
+    `;
+    return html;
+}
+
 async function renderDynamicControls(moduleName) {
     if (!dynamicControlsEl) return;
 
     let html = getBgHtml(moduleName);
 
+    // INYECCIÓN UNIFICADA O ESPECIALIZADA SEGÚN EL MÓDULO
     if (moduleName === 'inicializacion') {
-        const title = localStorage.getItem('init_title') || 'Bienvenidos';
-        const subtitle = localStorage.getItem('init_subtitle') || 'El servicio comenzará en breve';
-
-        let audioUrl = localStorage.getItem('init_audio_url');
-        let audioName = localStorage.getItem('init_audio_name');
-
-        if (!audioUrl || audioUrl.trim() === '') {
-            audioUrl = '/static/media/audio/default_audio.mp3';
-            audioName = '★ [PREDETERMINADO] Música Base';
-            localStorage.setItem('init_audio_url', audioUrl);
-            localStorage.setItem('init_audio_name', audioName);
-        }
-
-        html += `
-            <div class="d-flex flex-column gap-3">
-                <div class="card bg-black border-secondary">
-                    <div class="card-header border-secondary text-secondary fw-bold small">1. PARÁMETROS DE TEXTO</div>
-                    <div class="card-body">
-                        <input type="text" id="init-title" class="form-control border-secondary bg-dark text-white mb-2" value="${title}">
-                        <input type="text" id="init-subtitle" class="form-control border-secondary bg-dark text-white" value="${subtitle}">
-                    </div>
-                </div>
-                <div class="card bg-black border-secondary">
-                    <div class="card-header border-secondary text-secondary fw-bold small">2. AUDIO DE FONDO</div>
-                    <div class="card-body">
-                        <label for="init-audio-file" class="btn btn-outline-secondary w-100 mb-1 text-start" style="cursor: pointer;">
-                            📁 Seleccionar nuevo archivo de audio
-                        </label>
-                        <input type="file" id="init-audio-file" class="d-none" accept="audio/*" onchange="document.getElementById('init-audio-filename').innerHTML = '📄 Archivo preparado para enviar: <br><span class=\\'text-warning\\'>' + this.files[0].name + '</span>';">
-
-                        <div id="init-audio-filename" class="text-info small text-break mt-2">
-                            🎧 Pista enlazada actualmente: <br><span class="text-white">${audioName}</span>
-                        </div>
-                    </div>
-                </div>
-                <button id="btn-init-servicio" onclick="iniciarServicioPersonalizado()" class="btn btn-primary w-100 fw-bold py-3 fs-5 shadow-sm mt-2">
-                    🔄 Actualizar Inicialización
-                </button>
-            </div>
-        `;
+        html += getStandardModuleHtml('init', 'Ej. Bienvenidos');
+    } else if (moduleName === 'saludos') {
+        html += getStandardModuleHtml('saludo', 'Ej. ¡Dios les bendiga!');
+    } else if (moduleName === 'cenia') {
+        html += getStandardModuleHtml('cenia', 'Ej. Santa Cena');
+    } else if (moduleName === 'cumpleanos') {
+        html += getStandardModuleHtml('cumpleanos', 'Ej. ¡Feliz Cumpleaños!', true);
+    } else if (moduleName === 'anuncios') {
+        html += getStandardModuleHtml('anuncios', 'Ej. Anuncios Generales', true);
     } else if (moduleName === 'alabanzas') {
         html += `
             <div class="d-flex flex-column gap-3">
-                <div class="card bg-black border-secondary">
+                <div class="card bg-black border-secondary shadow-sm">
                     <div class="card-header border-secondary text-secondary fw-bold small d-flex justify-content-between align-items-center">
-                        <span>2. SETLIST DEL DÍA (Sincronizado)</span>
+                        <span>2. SETLIST DEL DÍA</span>
                         <button class="btn btn-sm btn-outline-info py-0 px-2 fw-bold" onclick="uiLoadSetlist()">🔄 Refrescar</button>
                     </div>
                     <div class="card-body">
-                        <div id="worship-setlist-container">
-                            <p class="text-muted small text-center mb-0">Cargando datos...</p>
-                        </div>
+                        <div id="worship-setlist-container"><p class="text-muted small text-center mb-0">Cargando datos...</p></div>
                     </div>
                 </div>
-                <div class="card bg-black border-secondary">
-                    <div class="card-header border-secondary text-secondary fw-bold small">3. CONTROL EN VIVO (Haga clic en la letra)</div>
+                <div class="card bg-black border-secondary shadow-sm">
+                    <div class="card-header border-secondary text-secondary fw-bold small">3. CONTROL EN VIVO</div>
                     <div class="card-body" id="worship-live-grid">
-                        <p class="text-muted small text-center mb-0">Seleccione una canción del Setlist para cargar los controles.</p>
+                        <p class="text-muted small text-center mb-0">Seleccione una canción para cargar la letra.</p>
                     </div>
                 </div>
-            </div>
-        `;
-    } else if (moduleName === 'saludos') {
-        const title = localStorage.getItem('saludo_title') || '¡Bienvenidos!';
-        const text = localStorage.getItem('saludo_text') || 'Nos alegramos de verte hoy en la casa de Dios.';
-
-        let audioUrl = localStorage.getItem('saludo_audio_url');
-        let audioName = localStorage.getItem('saludo_audio_name');
-
-        if (!audioUrl || audioUrl.trim() === '') {
-            audioUrl = '/static/media/audio/default_audio.mp3';
-            audioName = '★ [PREDETERMINADO] Música Base';
-            localStorage.setItem('saludo_audio_url', audioUrl);
-            localStorage.setItem('saludo_audio_name', audioName);
-        }
-
-        html += `
-            <div class="d-flex flex-column gap-3">
-                <div class="card bg-black border-secondary">
-                    <div class="card-header border-secondary text-secondary fw-bold small">1. PARÁMETROS DE TEXTO</div>
-                    <div class="card-body">
-                        <input type="text" id="saludo-title" class="form-control border-secondary bg-dark text-white mb-2" value="${title}">
-                        <textarea id="saludo-text" class="form-control border-secondary bg-dark text-white mb-3" rows="3">${text}</textarea>
-                    </div>
-                </div>
-                <div class="card bg-black border-secondary">
-                    <div class="card-header border-secondary text-secondary fw-bold small">2. AUDIO DE FONDO</div>
-                    <div class="card-body">
-                        <label for="saludo-audio-file" class="btn btn-outline-secondary w-100 mb-1 text-start" style="cursor: pointer;">
-                            📁 Seleccionar nuevo archivo de audio
-                        </label>
-                        <input type="file" id="saludo-audio-file" class="d-none" accept="audio/*" onchange="document.getElementById('saludo-audio-filename').innerHTML = '📄 Archivo preparado para enviar: <br><span class=\\'text-warning\\'>' + this.files[0].name + '</span>';">
-
-                        <div id="saludo-audio-filename" class="text-info small text-break mt-2">
-                            🎧 Pista enlazada actualmente: <br><span class="text-white">${audioName}</span>
-                        </div>
-                    </div>
-                </div>
-                <button onclick="projectSaludo()" class="btn btn-primary w-100 fw-bold py-3 fs-5 shadow-sm mt-2">🔄 Actualizar Saludo</button>
             </div>
         `;
     } else if (moduleName === 'predica') {
         html += `
             <div class="d-flex flex-column gap-3">
-                <div class="card bg-black border-secondary">
+                <div class="card bg-black border-secondary shadow-sm">
                     <div class="card-header border-secondary text-secondary fw-bold small d-flex justify-content-between align-items-center">
                         <span>1. BOSQUEJO DE LA PRÉDICA</span>
                         <button class="btn btn-sm btn-outline-info py-0 px-2 fw-bold" onclick="uiLoadBosquejo()">🔄 Refrescar</button>
                     </div>
                     <div class="card-body">
                         <div id="predica-slide-grid" class="d-flex flex-wrap gap-2">
-                            <p class="text-muted small text-center mb-0 w-100">Sincronizando base de datos...</p>
+                            <p class="text-muted small text-center mb-0 w-100">Sincronizando bosquejo...</p>
                         </div>
                     </div>
                 </div>
@@ -177,10 +161,9 @@ async function renderDynamicControls(moduleName) {
         `;
     } else if (moduleName === 'biblia') {
         let savedVersion = localStorage.getItem('bible_selected_version') || 'RVR1960';
-
         html += `
             <div class="d-flex flex-column gap-3">
-                <div class="card bg-black border-secondary">
+                <div class="card bg-black border-secondary shadow-sm">
                     <div class="card-header border-secondary text-secondary fw-bold small">BUSCADOR BÍBLICO RÁPIDO</div>
                     <div class="card-body">
                         <div class="row g-2">
@@ -189,48 +172,22 @@ async function renderDynamicControls(moduleName) {
                                     <option value="${savedVersion}">Cargando versiones...</option>
                                 </select>
                             </div>
-                            <div class="col-12">
-                                <!-- CAMPO DE TEXTO INTELIGENTE -->
-                                <input type="text" id="bible-book" placeholder="Libro (Ej. gen, 1cor, apoc)" class="form-control border-secondary bg-dark text-white fw-bold">
-                            </div>
-                            <div class="col-6">
-                                <input type="text" id="bible-chapter" placeholder="Capítulo (Ej. 3)" class="form-control border-secondary bg-dark text-white">
-                            </div>
-                            <div class="col-6">
-                                <input type="text" id="bible-verse" placeholder="Versículo (Ej. 16)" class="form-control border-secondary bg-dark text-white">
-                            </div>
-
+                            <div class="col-12"><input type="text" id="bible-book" placeholder="Libro (Ej. gen, 1cor, apoc)" class="form-control border-secondary bg-dark text-white fw-bold"></div>
+                            <div class="col-6"><input type="text" id="bible-chapter" placeholder="Capítulo (Ej. 3)" class="form-control border-secondary bg-dark text-white"></div>
+                            <div class="col-6"><input type="text" id="bible-verse" placeholder="Versículo (Ej. 16)" class="form-control border-secondary bg-dark text-white"></div>
                             <div class="col-12 mt-3 d-flex gap-2">
-                                <button onclick="uiProjectBible()" class="btn btn-success flex-grow-1 fw-bold py-2 shadow-sm">
-                                    📖 Mostrar Versículo
-                                </button>
-                                <button onclick="sendCommand('clear', {})" class="btn btn-outline-warning py-2">
-                                    🧹 Limpiar
-                                </button>
+                                <button onclick="uiProjectBible()" class="btn btn-success flex-grow-1 fw-bold py-2 shadow-sm">📖 Mostrar Versículo</button>
+                                <button onclick="sendCommand('clear', {})" class="btn btn-outline-warning py-2">🧹 Limpiar</button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         `;
-    } else if (moduleName === 'cumpleanos') {
-        html += `
-            <div class="d-flex flex-column gap-3">
-                <button onclick="uiProjectBirthdays()" class="btn btn-primary fw-bold py-2">🎂 Proyectar Cumpleaños</button>
-                <div id="birthday-preview" class="p-3 bg-black border border-secondary rounded text-white" style="min-height: 80px;"></div>
-            </div>
-        `;
-    } else if (moduleName === 'anuncios') {
-        html += `
-            <div class="d-flex flex-column gap-3">
-                <button onclick="uiProjectAnuncios()" class="btn btn-primary fw-bold py-2">📢 Proyectar Anuncios Activos</button>
-                <div id="anuncios-preview" class="p-3 bg-black border border-secondary rounded text-white" style="min-height: 80px;"></div>
-            </div>
-        `;
     } else if (moduleName === 'ofrendas') {
         html += `
             <div class="d-flex flex-column gap-3">
-                <div class="card bg-black border-secondary">
+                <div class="card bg-black border-secondary shadow-sm">
                     <div class="card-header border-secondary text-secondary fw-bold small">REGISTRO FINANCIERO</div>
                     <div class="card-body">
                         <div class="row g-2">
@@ -260,44 +217,26 @@ async function renderDynamicControls(moduleName) {
                 </div>
             </div>
         `;
-    } else if (moduleName === 'cenia') {
-        html += `
-            <div class="d-flex flex-column gap-3">
-                <button onclick="sendCommand('set_text', { title: 'Santa Cena', text: 'En memoria de nuestro Señor Jesucristo' })" class="btn btn-primary fw-bold py-2">🍷 Mostrar Título Santa Cena</button>
-                <button onclick="sendCommand('set_text', { title: 'El Pan', text: 'Tomad, comed; esto es mi cuerpo que por vosotros es partido; haced esto en memoria de mí. - 1 Corintios 11:24' })" class="btn btn-outline-light fw-bold py-2">🥖 Proyectar Texto del Pan</button>
-                <button onclick="sendCommand('set_text', { title: 'La Copa', text: 'Esta copa es el nuevo pacto en mi sangre; haced esto todas las veces que la bebiereis, en memoria de mí. - 1 Corintios 11:25' })" class="btn btn-outline-light fw-bold py-2">🍇 Proyectar Texto de la Copa</button>
-            </div>
-        `;
-    } else {
-        html += `<p class="text-muted text-center mt-3">Módulo <strong>${moduleName}</strong> listo.</p>`;
     }
 
     dynamicControlsEl.innerHTML = html;
 
     Core.uiLoadModuleBackgrounds(moduleName);
 
-    if (moduleName === 'alabanzas') {
-        Worship.uiLoadSetlist();
-    } else if (moduleName === 'inicializacion') {
-        Core.iniciarServicioPersonalizado();
-    } else if (moduleName === 'saludos') {
-        Core.projectSaludo();
-    } else if (moduleName === 'predica') {
-        Core.uiLoadBosquejo();
-    } else if (moduleName === 'biblia') {
-        Core.uiLoadBibleVersions();
-    } else if (moduleName === 'cumpleanos') {
-        Core.uiLoadBirthdayPreview();
-    } else if (moduleName === 'anuncios') {
-        Core.uiLoadAnunciosPreview();
-    }
+    if (moduleName === 'alabanzas') Worship.uiLoadSetlist();
+    else if (moduleName === 'predica') Core.uiLoadBosquejo();
+    else if (moduleName === 'biblia') Core.uiLoadBibleVersions();
+    else if (moduleName === 'inicializacion') Core.projectInicializacion();
+    else if (moduleName === 'saludos') Core.projectSaludos();
+    else if (moduleName === 'cenia') Core.projectSantaCena();
+    else if (moduleName === 'cumpleanos') Core.projectCumpleanos();
+    else if (moduleName === 'anuncios') Core.projectAnuncios();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     initWebSocket('connection-status');
     sendCommand('clear', {});
 
-    // RECEPTOR DE SCROLL: Escucha al monitor esclavo y retransmite la orden al proyector
     window.addEventListener('message', (event) => {
         if (event.data && event.data.type === 'monitor_scroll') {
             sendCommand('sync_scroll', { scrollTop: event.data.scrollTop });

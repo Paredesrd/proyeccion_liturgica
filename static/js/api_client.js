@@ -1,3 +1,14 @@
+// Configuración centralizada de red
+const CONFIG = {
+    // Esta llave debe coincidir con SECRET_KEY de core/config.py
+    API_KEY: 'cambiar-esto-en-produccion-inmediatamente',
+    headers: function(isJson = true) {
+        const h = { 'X-API-Key': this.API_KEY };
+        if (isJson) h['Content-Type'] = 'application/json';
+        return h;
+    }
+};
+
 export const API = {
     media: {
         upload: async (fileInputId, mediaCategory) => {
@@ -10,7 +21,11 @@ export const API = {
             formData.append('media_type', mediaCategory);
 
             try {
-                const response = await fetch('/api/media/upload', { method: 'POST', body: formData });
+                const response = await fetch('/api/media/upload', {
+                    method: 'POST',
+                    headers: { 'X-API-Key': CONFIG.API_KEY }, // FormData no lleva Content-Type manual
+                    body: formData
+                });
                 if (!response.ok) {
                     const err = await response.json();
                     throw new Error(err.detail || 'Fallo en la ingesta del servidor.');
@@ -24,42 +39,42 @@ export const API = {
             }
         },
         getBackgrounds: async () => {
-            const response = await fetch('/api/media/backgrounds');
+            const response = await fetch('/api/media/backgrounds', { headers: CONFIG.headers() });
             if(!response.ok) throw new Error("Falla al listar catálogo de fondos");
             return await response.json();
         }
     },
     bible: {
         getVersions: async () => {
-            const response = await fetch('/api/bible/versions');
+            const response = await fetch('/api/bible/versions', { headers: CONFIG.headers() });
             if(!response.ok) throw new Error("Falla al extraer las versiones bíblicas");
             return await response.json();
         },
         getBooks: async (version = "RVR1960") => {
-            const response = await fetch(`/api/bible/books?version=${encodeURIComponent(version)}`);
+            const response = await fetch(`/api/bible/books?version=${encodeURIComponent(version)}`, { headers: CONFIG.headers() });
             if(!response.ok) throw new Error("Falla de acceso a datos bíblicos");
             return await response.json();
         },
         searchVerse: async (book, chapter, version="RVR1960") => {
-            const response = await fetch(`/api/bible/search?libro=${encodeURIComponent(book)}&capitulo=${encodeURIComponent(chapter)}&version=${version}`);
+            const response = await fetch(`/api/bible/search?libro=${encodeURIComponent(book)}&capitulo=${encodeURIComponent(chapter)}&version=${version}`, { headers: CONFIG.headers() });
             return { ok: response.ok, data: await response.json() };
         }
     },
     canciones: {
         getAll: async () => {
-            const response = await fetch('/api/admin/canciones');
+            const response = await fetch('/api/admin/canciones', { headers: CONFIG.headers() });
             if(!response.ok) throw new Error("Falla al extraer el cancionero");
             return await response.json();
         },
         getSetlist: async () => {
-            const response = await fetch('/api/media/setlist');
+            const response = await fetch('/api/media/setlist', { headers: CONFIG.headers() });
             if(!response.ok) return { canciones_ids: [] };
             return await response.json();
         },
         saveSetlist: async (ids) => {
             const response = await fetch('/api/media/setlist', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: CONFIG.headers(),
                 body: JSON.stringify({ canciones_ids: ids })
             });
             return response.ok;
@@ -67,14 +82,14 @@ export const API = {
     },
     predica: {
         getBosquejo: async () => {
-            const response = await fetch('/api/predica/bosquejo');
+            const response = await fetch('/api/predica/bosquejo', { headers: CONFIG.headers() });
             if(!response.ok) return { diapositivas: [] };
             return await response.json();
         },
         saveBosquejo: async (slides) => {
             const response = await fetch('/api/predica/bosquejo', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: CONFIG.headers(),
                 body: JSON.stringify({ diapositivas: slides })
             });
             return response.ok;
@@ -82,25 +97,33 @@ export const API = {
     },
     projection: {
         getBirthdays: async () => {
-            const response = await fetch('/api/projection/birthdays');
+            const response = await fetch('/api/projection/birthdays', { headers: CONFIG.headers() });
             if(!response.ok) throw new Error("Falla al extraer lotes de cumpleaños");
             return await response.json();
         },
         getAnuncios: async () => {
-            const response = await fetch('/api/projection/anuncios');
+            const response = await fetch('/api/projection/anuncios', { headers: CONFIG.headers() });
             if(!response.ok) throw new Error("Falla al extraer lotes de anuncios");
             return await response.json();
         },
         registerOfrenda: async (tipo, monto, desc, anonima) => {
-            let url = `/api/projection/ofrenda?tipo=${encodeURIComponent(tipo)}&anonima=${anonima}`;
-            if (monto !== '') url += `&monto=${encodeURIComponent(monto)}`;
-            if (desc !== '') url += `&descripcion=${encodeURIComponent(desc)}`;
+            // CORRECCIÓN CRÍTICA: Enviar JSON validado para Pydantic
+            const payload = {
+                tipo: tipo,
+                monto: monto !== '' ? parseInt(monto) : null,
+                descripcion: desc !== '' ? desc : null,
+                anonima: anonima
+            };
 
-            const response = await fetch(url, { method: 'POST' });
+            const response = await fetch('/api/projection/ofrenda', {
+                method: 'POST',
+                headers: CONFIG.headers(),
+                body: JSON.stringify(payload)
+            });
             return { ok: response.ok, data: await response.json() };
         },
         getTotalOfrendas: async () => {
-            const response = await fetch('/api/projection/ofrendas/total');
+            const response = await fetch('/api/projection/ofrendas/total', { headers: CONFIG.headers() });
             if(!response.ok) throw new Error("Falla en consolidación de datos financieros");
             return await response.json();
         }

@@ -1,99 +1,55 @@
-:root {
-    --bg-color: #f4f7f6;
-    --surface-color: #ffffff;
-    --primary-color: #2563eb;
-    --danger-color: #dc2626;
-    --text-color: #1f2937;
-    --border-color: #e5e7eb;
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* =========================================================
+   COMPLEMENTOS A BOOTSTRAP 5 (TEMA OSCURO)
+   ========================================================= */
 
 body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    line-height: 1.6;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-.admin-header {
-    background-color: var(--surface-color);
-    padding: 1.5rem 2rem;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+/* Restricciones para monitores Ultra-Wide */
+.max-w-custom { max-width: 1200px; }
+.max-w-500 { max-width: 500px; }
+
+/* Estilización de las Pestañas (Nav Pills) */
+.nav-pills .nav-link {
+    color: #9ca3af;
+    border-radius: 6px;
+    transition: all 0.2s ease-in-out;
 }
 
-.admin-header h1 { font-size: 1.5rem; color: var(--primary-color); }
-.nav-link { text-decoration: none; color: var(--primary-color); font-weight: 600; }
-
-.admin-container {
-    max-width: 1000px;
-    margin: 2rem auto;
-    padding: 0 1.5rem;
+.nav-pills .nav-link:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
-.module-section {
-    background-color: var(--surface-color);
-    padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-    margin-bottom: 2rem;
+.nav-pills .nav-link.active {
+    background-color: #3b82f6;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-.module-section h2 {
-    margin-bottom: 1.5rem;
-    font-size: 1.25rem;
-    border-bottom: 2px solid var(--border-color);
-    padding-bottom: 0.5rem;
+/* Tablas internas: Alineación vertical perfecta */
+.table td, .table th {
+    vertical-align: middle;
 }
 
-.admin-form {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
+/* =========================================================
+   BARRA DE DESPLAZAMIENTO ESTILIZADA (SCROLLBAR)
+   ========================================================= */
+.custom-scroll::-webkit-scrollbar {
+    width: 8px;
 }
 
-.admin-form input {
-    flex: 1;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color);
+.custom-scroll::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
     border-radius: 4px;
-    font-size: 1rem;
 }
 
-.btn-primary, .btn-danger {
-    padding: 0.75rem 1.5rem;
-    border: none;
+.custom-scroll::-webkit-scrollbar-thumb {
+    background: #4b5563;
     border-radius: 4px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s;
 }
 
-.btn-primary { background-color: var(--primary-color); color: white; }
-.btn-danger { background-color: var(--danger-color); color: white; padding: 0.5rem 1rem; font-size: 0.875rem;}
-.btn-primary:hover, .btn-danger:hover { opacity: 0.9; }
-
-.table-container { overflow-x: auto; }
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-th, td {
-    padding: 1rem;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color);
-}
-
-th {
-    background-color: #f9fafb;
-    font-weight: 600;
-    color: #4b5563;
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
 }

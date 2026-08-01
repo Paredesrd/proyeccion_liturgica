@@ -1,43 +1,21 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, Field
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
 import os
 
-from services.birthday_service import obtener_cumpleanos_rango, crear_cumpleanos, eliminar_cumpleanos, obtener_todos_cumpleanos
-from services.anuncio_service import obtener_todos_anuncios, crear_anuncio, actualizar_anuncio, eliminar_anuncio
-from services.cancion_service import obtener_todas_canciones, crear_cancion, actualizar_cancion, eliminar_cancion
+from database.connection import get_db
+from core.security import verify_api_key
+from schemas.admin_schemas import (
+    CumpleanosCreate, AnuncioCreate, AnuncioUpdate,
+    CancionCreate, CancionUpdate
+)
+
+from services import birthday_service, anuncio_service, cancion_service
 
 router = APIRouter()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-from fastapi.templating import Jinja2Templates
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-
-# ==================== ESQUEMAS PYDANTIC ====================
-
-class CumpleanosCreate(BaseModel):
-    nombre: str = Field(..., min_length=1, description="Nombre completo de la persona")
-    fecha: str = Field(..., pattern=r'^\d{4}-\d{2}-\d{2}$', description="Fecha en formato YYYY-MM-DD")
-
-class AnuncioCreate(BaseModel):
-    titulo: str = Field(..., min_length=1, description="Título del anuncio")
-    contenido: str = Field(..., min_length=1, description="Contenido del anuncio")
-    activo: bool = True
-
-class AnuncioUpdate(BaseModel):
-    titulo: str | None = Field(None, min_length=1)
-    contenido: str | None = Field(None, min_length=1)
-    activo: bool | None = None
-
-class CancionCreate(BaseModel):
-    titulo: str = Field(..., min_length=1, description="Título de la canción")
-    autor: str | None = Field(None, description="Autor o ministerio")
-    letra: str = Field(..., min_length=1, description="Letra completa de la canción")
-
-class CancionUpdate(BaseModel):
-    titulo: str | None = Field(None, min_length=1)
-    autor: str | None = Field(None)
-    letra: str | None = Field(None, min_length=1)
 
 # ==================== RUTAS BASE ====================
 
@@ -49,102 +27,84 @@ def admin_panel(request: Request):
     )
 
 # ==================== RUTAS DE CUMPLEAÑOS ====================
+# Nota: Debes refactorizar birthday_service para aceptar db: Session al igual que anuncio_service
 
-@router.get("/api/admin/birthdays")
-def get_birthdays():
-    return obtener_todos_cumpleanos()
+@router.get("/api/admin/birthdays", dependencies=[Depends(verify_api_key)])
+def get_birthdays(db: Session = Depends(get_db)):
+    return birthday_service.obtener_todos_cumpleanos(db)
 
-@router.get("/api/admin/birthdays/week")
-def get_birthdays_week():
-    return obtener_cumpleanos_rango()
+@router.get("/api/admin/birthdays/week", dependencies=[Depends(verify_api_key)])
+def get_birthdays_week(db: Session = Depends(get_db)):
+    return birthday_service.obtener_cumpleanos_rango(db)
 
-@router.post("/api/admin/birthdays")
-def add_birthday(data: CumpleanosCreate):
+@router.post("/api/admin/birthdays", dependencies=[Depends(verify_api_key)])
+def add_birthday(data: CumpleanosCreate, db: Session = Depends(get_db)):
     try:
-        return crear_cumpleanos(data.nombre, data.fecha)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+        return birthday_service.crear_cumpleanos(db, data)
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno al crear cumpleaños")
 
-@router.delete("/api/admin/birthdays/{id}")
-def delete_birthday(id: int):
-    if eliminar_cumpleanos(id):
+@router.delete("/api/admin/birthdays/{id}", dependencies=[Depends(verify_api_key)])
+def delete_birthday(id: int, db: Session = Depends(get_db)):
+    if birthday_service.eliminar_cumpleanos(db, id):
         return {"message": "Eliminado correctamente"}
     raise HTTPException(status_code=404, detail="No encontrado")
 
 # ==================== RUTAS DE ANUNCIOS ====================
 
-@router.get("/api/admin/anuncios")
-def get_anuncios():
-    return obtener_todos_anuncios()
+@router.get("/api/admin/anuncios", dependencies=[Depends(verify_api_key)])
+def get_anuncios(db: Session = Depends(get_db)):
+    return anuncio_service.obtener_todos_anuncios(db)
 
-@router.post("/api/admin/anuncios")
-def create_anuncio(data: AnuncioCreate):
+@router.post("/api/admin/anuncios", dependencies=[Depends(verify_api_key)])
+def create_anuncio(data: AnuncioCreate, db: Session = Depends(get_db)):
     try:
-        return crear_anuncio(data.titulo, data.contenido, data.activo)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+        return anuncio_service.crear_anuncio(db, data)
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno al crear anuncio")
 
-@router.put("/api/admin/anuncios/{id}")
-def update_anuncio(id: int, data: AnuncioUpdate):
+@router.put("/api/admin/anuncios/{id}", dependencies=[Depends(verify_api_key)])
+def update_anuncio(id: int, data: AnuncioUpdate, db: Session = Depends(get_db)):
     try:
-        resultado = actualizar_anuncio(
-            id=id,
-            titulo=data.titulo,
-            contenido=data.contenido,
-            activo=data.activo
-        )
+        resultado = anuncio_service.actualizar_anuncio(db, id, data)
         if resultado is None:
             raise HTTPException(status_code=404, detail="Anuncio no encontrado")
         return resultado
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno al actualizar anuncio")
 
-@router.delete("/api/admin/anuncios/{id}")
-def delete_anuncio(id: int):
-    if eliminar_anuncio(id):
+@router.delete("/api/admin/anuncios/{id}", dependencies=[Depends(verify_api_key)])
+def delete_anuncio(id: int, db: Session = Depends(get_db)):
+    if anuncio_service.eliminar_anuncio(db, id):
         return {"message": "Eliminado correctamente"}
     raise HTTPException(status_code=404, detail="No encontrado")
 
 # ==================== RUTAS DE CANCIONERO ====================
+# Nota: Debes refactorizar cancion_service para aceptar db: Session al igual que anuncio_service
 
-@router.get("/api/admin/canciones")
-def get_canciones():
-    return obtener_todas_canciones()
+@router.get("/api/admin/canciones", dependencies=[Depends(verify_api_key)])
+def get_canciones(db: Session = Depends(get_db)):
+    return cancion_service.obtener_todas_canciones(db)
 
-@router.post("/api/admin/canciones")
-def add_cancion(data: CancionCreate):
+@router.post("/api/admin/canciones", dependencies=[Depends(verify_api_key)])
+def add_cancion(data: CancionCreate, db: Session = Depends(get_db)):
     try:
-        return crear_cancion(data.titulo, data.autor, data.letra)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+        return cancion_service.crear_cancion(db, data)
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno al registrar canción")
 
-@router.put("/api/admin/canciones/{id}")
-def edit_cancion(id: int, data: CancionUpdate):
+@router.put("/api/admin/canciones/{id}", dependencies=[Depends(verify_api_key)])
+def edit_cancion(id: int, data: CancionUpdate, db: Session = Depends(get_db)):
     try:
-        resultado = actualizar_cancion(
-            id=id,
-            titulo=data.titulo,
-            autor=data.autor,
-            letra=data.letra
-        )
+        resultado = cancion_service.actualizar_cancion(db, id, data)
         if resultado is None:
             raise HTTPException(status_code=404, detail="Canción no encontrada")
         return resultado
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno al actualizar canción")
 
-@router.delete("/api/admin/canciones/{id}")
-def drop_cancion(id: int):
-    if eliminar_cancion(id):
+@router.delete("/api/admin/canciones/{id}", dependencies=[Depends(verify_api_key)])
+def drop_cancion(id: int, db: Session = Depends(get_db)):
+    if cancion_service.eliminar_cancion(db, id):
         return {"message": "Canción eliminada correctamente"}
     raise HTTPException(status_code=404, detail="Canción no encontrada")

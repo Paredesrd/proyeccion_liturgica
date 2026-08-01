@@ -15,6 +15,13 @@ let globalCatalog = [];
 let currentSetlistIds = [];
 let bosquejoSlides = [];
 
+// Generador de cabeceras de seguridad
+const getHeaders = (isJson = true) => {
+    const h = { 'X-API-Key': 'cambiar-esto-en-produccion-inmediatamente' };
+    if (isJson) h['Content-Type'] = 'application/json';
+    return h;
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
     cargarCumpleanos();
     cargarAnuncios();
@@ -59,7 +66,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             const response = await fetch('/api/admin/birthdays', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre, fecha })
+                method: 'POST',
+                headers: getHeaders(true),
+                body: JSON.stringify({ nombre, fecha })
             });
             if (response.ok) { document.getElementById('form-cumpleanos').reset(); cargarCumpleanos(); }
         } catch (error) { console.error(error); }
@@ -72,7 +81,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             const response = await fetch('/api/admin/anuncios', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo, contenido, activo: true })
+                method: 'POST',
+                headers: getHeaders(true),
+                body: JSON.stringify({ titulo, contenido, activo: true })
             });
             if (response.ok) { document.getElementById('form-anuncios').reset(); cargarAnuncios(); }
         } catch (error) { console.error(error); }
@@ -85,7 +96,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             const response = await fetch('/api/admin/canciones', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo: titulo, letra: letra, autor: "" })
+                method: 'POST',
+                headers: getHeaders(true),
+                body: JSON.stringify({ titulo: titulo, letra: letra, autor: "" })
             });
             if (response.ok) { document.getElementById('form-canciones').reset(); cargarCanciones(); }
         } catch (error) { console.error(error); }
@@ -105,6 +118,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 /* ==================== MÓDULO BOSQUEJO ==================== */
 function renderTablaBosquejo() {
     const tbody = document.querySelector('#tabla-bosquejo tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
     bosquejoSlides.forEach((slide, idx) => {
         const tr = document.createElement('tr');
@@ -143,7 +157,7 @@ async function guardarBosquejoEnServidor() {
 /* ==================== MÓDULO CANCIONES & SETLIST ==================== */
 async function cargarCanciones() {
     try {
-        const response = await fetch('/api/admin/canciones');
+        const response = await fetch('/api/admin/canciones', { headers: getHeaders(false) });
         if (!response.ok) throw new Error(`Error HTTP`);
         globalCatalog = await response.json();
 
@@ -157,6 +171,8 @@ async function cargarCanciones() {
 function renderizarTablasMusica() {
     const tbodyCat = document.querySelector('#tabla-canciones tbody');
     const tbodySet = document.querySelector('#tabla-setlist tbody');
+    if (!tbodyCat || !tbodySet) return;
+
     tbodyCat.innerHTML = '';
     tbodySet.innerHTML = '';
 
@@ -217,7 +233,10 @@ async function guardarSetlistEnServidor() {
 async function eliminarCancion(id) {
     if (!confirm('¿Eliminar esta canción del catálogo?')) return;
     try {
-        const res = await fetch(`/api/admin/canciones/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/admin/canciones/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders(false)
+        });
         if (res.ok) {
             currentSetlistIds = currentSetlistIds.filter(setId => setId !== id);
             cargarCanciones();
@@ -228,7 +247,7 @@ async function eliminarCancion(id) {
 /* ==================== OTROS MÓDULOS ==================== */
 async function cargarCumpleanos() {
     try {
-        const response = await fetch('/api/admin/birthdays');
+        const response = await fetch('/api/admin/birthdays', { headers: getHeaders(false) });
         if (!response.ok) throw new Error(`Error HTTP`);
         renderizarTablaCumpleanos(await response.json());
     } catch (error) { console.error(error); }
@@ -236,6 +255,7 @@ async function cargarCumpleanos() {
 
 function renderizarTablaCumpleanos(data) {
     const tbody = document.querySelector('#tabla-cumpleanos tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
     data.forEach(item => {
         const tr = document.createElement('tr');
@@ -248,14 +268,17 @@ function renderizarTablaCumpleanos(data) {
 async function eliminarCumpleanos(id) {
     if (!confirm('¿Eliminar registro?')) return;
     try {
-        const res = await fetch(`/api/admin/birthdays/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/admin/birthdays/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders(false)
+        });
         if (res.ok) cargarCumpleanos();
     } catch (error) { console.error(error); }
 }
 
 async function cargarAnuncios() {
     try {
-        const response = await fetch('/api/admin/anuncios');
+        const response = await fetch('/api/admin/anuncios', { headers: getHeaders(false) });
         if (!response.ok) throw new Error(`Error HTTP`);
         renderizarTablaAnuncios(await response.json());
     } catch (error) { console.error(error); }
@@ -263,6 +286,7 @@ async function cargarAnuncios() {
 
 function renderizarTablaAnuncios(data) {
     const tbody = document.querySelector('#tabla-anuncios tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
     data.forEach(item => {
         const tr = document.createElement('tr');
@@ -280,13 +304,18 @@ function renderizarTablaAnuncios(data) {
 
 async function cambiarEstadoAnuncio(id, estado) {
     await fetch(`/api/admin/anuncios/${id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activo: estado })
+        method: 'PUT',
+        headers: getHeaders(true),
+        body: JSON.stringify({ activo: estado })
     });
     cargarAnuncios();
 }
 
 async function eliminarAnuncio(id) {
     if (!confirm('¿Eliminar anuncio?')) return;
-    await fetch(`/api/admin/anuncios/${id}`, { method: 'DELETE' });
+    await fetch(`/api/admin/anuncios/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders(false)
+    });
     cargarAnuncios();
 }

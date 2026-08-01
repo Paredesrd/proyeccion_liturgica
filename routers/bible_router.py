@@ -1,14 +1,14 @@
-from fastapi import APIRouter, HTTPException
-import sqlite3
-import os
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 import re
 import unicodedata
 
+from database.connection import get_bible_db
+from core.logger import log
+
 router = APIRouter()
 
-DB_PATH = os.path.join("database", "biblias.db")
-
-# Diccionario canónico integrado para búsquedas ultrarrápidas
 BIBLE_ALIASES = {
     "genesis": ["gen"], "exodo": ["exo"], "levitico": ["lev"], "numeros": ["num"], "deuteronomio": ["deut", "deu"],
     "josue": ["jos"], "jueces": ["jue"], "rut": ["rut"],
@@ -35,16 +35,14 @@ BIBLE_ALIASES = {
     "apocalipsis": ["apoc", "apo", "rev"]
 }
 
-
-def normalize(text):
-    if not text: return ""
-    text = text.lower().strip()
-    text = re.sub(r'^1\s*', '1', text)
-    text = re.sub(r'^2\s*', '2', text)
-    text = re.sub(r'^3\s*', '3', text)
-    text = text.replace(" ", "")
-    return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
-
+def normalize(text_val):
+    if not text_val: return ""
+    text_val = text_val.lower().strip()
+    text_val = re.sub(r'^1\s*', '1', text_val)
+    text_val = re.sub(r'^2\s*', '2', text_val)
+    text_val = re.sub(r'^3\s*', '3', text_val)
+    text_val = text_val.replace(" ", "")
+    return ''.join(c for c in unicodedata.normalize('NFD', text_val) if unicodedata.category(c) != 'Mn')
 
 def get_standard_book(search_term):
     norm_term = normalize(search_term)
@@ -56,42 +54,32 @@ def get_standard_book(search_term):
                 return standard
     return None
 
-
-def get_db_connection():
-    if not os.path.exists(DB_PATH):
-        raise HTTPException(status_code=500, detail="Base de datos no encontrada. Ejecute el script de migración.")
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
 @router.get("/api/bible/versions")
-def get_versions():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT version FROM versiculos ORDER BY version")
-    versions = [row['version'] for row in cursor.fetchall()]
-    conn.close()
-    return {"versiones": versions}
-
+def get_versions(db: Session = Depends(get_bible_db)):
+    try:
+        query = text("SELECT DISTINCT version FROM versiculos ORDER BY version")
+        result = db.execute(query).fetchall()
+        return {"versiones": [row[0] for row in result]}
+    except Exception as e:
+        log.error(f"Error al obtener versiones bíblicas: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno al consultar versiones")
 
 @router.get("/api/bible/books")
-def get_books(version: str = "RVR1960"):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT nombre_libro_original FROM versiculos WHERE version = ?", (version,))
-    books = [row['nombre_libro_original'] for row in cursor.fetchall()]
-    conn.close()
-    return {"libros": books}
-
+def get_books(version: str = "RVR1960", db: Session = Depends(get_bible_db)):
+    try:
+        query = text("SELECT DISTINCT nombre_libro_original FROM versiculos WHERE version = :version")
+        result = db.execute(query, {"version": version}).fetchall()
+        return {"libros": [row[0] for row in result]}
+    except Exception as e:
+        log.error(f"Error al obtener libros bíblicos: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno al consultar libros")
 
 @router.get("/api/bible/search")
-def search_bible(libro: str, capitulo: str, version: str = "RVR1960"):
+def search_bible(libro: str, capitulo: str, version: str = "RVR1960", db: Session = Depends(get_bible_db)):
     std_book = get_standard_book(libro)
     if not std_book:
         raise HTTPException(status_code=404, detail=f"[ERROR_LIBRO] Libro '{libro}' no reconocido.")
 
-    # 1. PARSEO DE CAPÍTULO Y VERSÍCULO
     chap_str = capitulo.strip()
     verse_str = None
     if ":" in capitulo:
@@ -104,64 +92,57 @@ def search_bible(libro: str, capitulo: str, version: str = "RVR1960"):
     except ValueError:
         raise HTTPException(status_code=400, detail="[ERROR_SINTAXIS] El capítulo debe ser un número válido.")
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    try:
+        check_query = text("SELECT 1 FROM versiculos WHERE version = :version AND libro = :libro AND capitulo = :capitulo LIMIT 1")
+        exists = db.execute(check_query, {"version": version, "libro": std_book, "capitulo": chap_num}).fetchone()
+        if not exists:
+            raise HTTPException(status_code=404, detail=f"[ERROR_CAPÍTULO] El capítulo {chap_num} no existe en este libro.")
 
-    # 2. VERIFICACIÓN DE CAPÍTULO EN BD
-    cursor.execute("SELECT 1 FROM versiculos WHERE version=? AND libro=? AND capitulo=? LIMIT 1",
-                   (version, std_book, chap_num))
-    if not cursor.fetchone():
-        conn.close()
-        raise HTTPException(status_code=404, detail=f"[ERROR_CAPÍTULO] El capítulo {chap_num} no existe en este libro.")
+        if not verse_str:
+            data_query = text("SELECT versiculo, texto, nombre_libro_original FROM versiculos WHERE version = :version AND libro = :libro AND capitulo = :capitulo ORDER BY versiculo")
+            rows = db.execute(data_query, {"version": version, "libro": std_book, "capitulo": chap_num}).fetchall()
 
-    # 3. EXTRACCIÓN MEDIANTE SQL (Precisión absoluta)
-    if not verse_str:
-        # Extraer capítulo entero
-        cursor.execute(
-            "SELECT versiculo, texto, nombre_libro_original FROM versiculos WHERE version=? AND libro=? AND capitulo=? ORDER BY versiculo",
-            (version, std_book, chap_num))
-        rows = cursor.fetchall()
-
-        final_text = "\n".join([f"{r['versiculo']}. {r['texto']}" for r in rows])
-        ref_name = rows[0]['nombre_libro_original']
-        referencia = f"{ref_name} {chap_num}"
-    else:
-        # Extraer versículos específicos o rangos
-        req_verses = []
-        if "-" in verse_str:
-            nums = re.findall(r'\d+', verse_str)
-            if len(nums) >= 2:
-                req_verses = list(range(int(nums[0]), int(nums[1]) + 1))
-            elif len(nums) == 1:
-                req_verses = [int(nums[0])]
+            final_text = "\n".join([f"{r[0]}. {r[1]}" for r in rows])
+            ref_name = rows[0][2]
+            referencia = f"{ref_name} {chap_num}"
         else:
-            nums = re.findall(r'\d+', verse_str)
-            if nums:
-                req_verses = [int(nums[0])]
+            req_verses = []
+            if "-" in verse_str:
+                nums = re.findall(r'\d+', verse_str)
+                if len(nums) >= 2:
+                    req_verses = list(range(int(nums[0]), int(nums[1]) + 1))
+                elif len(nums) == 1:
+                    req_verses = [int(nums[0])]
+            else:
+                nums = re.findall(r'\d+', verse_str)
+                if nums:
+                    req_verses = [int(nums[0])]
 
-        if not req_verses:
-            conn.close()
-            raise HTTPException(status_code=400, detail="[ERROR_SINTAXIS] Formato de versículo inválido.")
+            if not req_verses:
+                raise HTTPException(status_code=400, detail="[ERROR_SINTAXIS] Formato de versículo inválido.")
 
-        # Inyección segura de parámetros SQL IN ()
-        placeholders = ','.join('?' * len(req_verses))
-        query = f"SELECT versiculo, texto, nombre_libro_original FROM versiculos WHERE version=? AND libro=? AND capitulo=? AND versiculo IN ({placeholders}) ORDER BY versiculo"
+            placeholders = ','.join(f':v{i}' for i in range(len(req_verses)))
+            params = {"version": version, "libro": std_book, "capitulo": chap_num}
+            for i, v in enumerate(req_verses):
+                params[f"v{i}"] = v
 
-        cursor.execute(query, [version, std_book, chap_num] + req_verses)
-        rows = cursor.fetchall()
+            data_query = text(f"SELECT versiculo, texto, nombre_libro_original FROM versiculos WHERE version = :version AND libro = :libro AND capitulo = :capitulo AND versiculo IN ({placeholders}) ORDER BY versiculo")
+            rows = db.execute(data_query, params).fetchall()
 
-        if not rows:
-            conn.close()
-            raise HTTPException(status_code=404, detail=f"[ERROR_VERSÍCULO] Versículo(s) {verse_str} no encontrado(s).")
+            if not rows:
+                raise HTTPException(status_code=404, detail=f"[ERROR_VERSÍCULO] Versículo(s) {verse_str} no encontrado(s).")
 
-        final_text = "\n".join([f"{r['versiculo']}. {r['texto']}" for r in rows])
-        ref_name = rows[0]['nombre_libro_original']
-        referencia = f"{ref_name} {chap_num}"
+            final_text = "\n".join([f"{r[0]}. {r[1]}" for r in rows])
+            ref_name = rows[0][2]
+            referencia = f"{ref_name} {chap_num}"
 
-    conn.close()
-
-    return {
-        "referencia": referencia,
-        "version": version,
-        "texto": final_text
-    }
+        return {
+            "referencia": referencia,
+            "version": version,
+            "texto": final_text
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        log.error(f"Error crítico en búsqueda bíblica: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno al procesar búsqueda bíblica")

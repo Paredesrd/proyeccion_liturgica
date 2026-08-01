@@ -72,7 +72,7 @@ body:not(.is-monitor) #content-layer {
    MÓDULO: BIBLIA (Letras colosales)
    ========================================================= */
 #main-title {
-    font-size: 9vw; /* Tamaño reventado */
+    font-size: 9vw;
     font-weight: 800;
     color: #fbbf24;
     margin-bottom: 2vh;
@@ -83,7 +83,7 @@ body:not(.is-monitor) #content-layer {
 }
 
 #main-text {
-    font-size: 8vw; /* Tamaño reventado */
+    font-size: 8vw;
     font-weight: 700;
     color: #ffffff;
     line-height: 1.35;
@@ -96,7 +96,7 @@ body:not(.is-monitor) #content-layer {
    MÓDULO: ALABANZAS (Impacto visual masivo para 2 líneas)
    ========================================================= */
 #lyrics-container {
-    font-size: 13vw; /* Tamaño masivo, satura la pantalla */
+    font-size: 13vw;
     font-weight: 800;
     color: #ffffff;
     line-height: 1.2;
@@ -151,7 +151,107 @@ body:not(.is-monitor) #content-layer {
 }
 
 /* =========================================================
-   OTROS MÓDULOS (Cumpleaños y vacíos)
+   VARIANTE: SANTA CENA (Elegante y posicionado a la derecha)
+   ========================================================= */
+.cenia-layout {
+    align-items: flex-end !important;
+    text-align: right !important;
+    padding-top: 25vh !important;
+    padding-right: 5vw !important;
+}
+
+.cenia-layout #content-layer::before {
+    flex: 0;
+}
+
+.cenia-layout #main-title {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 6vw;
+    font-weight: normal;
+    color: #fbbf24;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    margin-bottom: 3vh;
+    text-align: right;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8), 0px 0px 20px rgba(0, 0, 0, 0.5);
+}
+
+.cenia-layout #main-text {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 4.5vw;
+    font-weight: normal;
+    color: #f3f4f6;
+    font-style: italic;
+    line-height: 1.4;
+    text-align: right;
+    max-width: 65%;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8), 0px 0px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* =========================================================
+   VARIANTE: CUMPLEAÑOS (Minimalista, lista compacta)
+   ========================================================= */
+.cumpleanos-layout {
+    justify-content: center !important;
+    padding-top: 4vh !important;
+}
+
+.cumpleanos-layout #main-title {
+    font-size: 6vw;
+    color: #ffffff;
+    margin-bottom: 1vh;
+    text-shadow: 0px 4px 15px rgba(0, 0, 0, 0.9);
+}
+
+.cumpleanos-layout #main-text {
+    font-size: 3vw;
+    color: #e5e7eb;
+    margin-bottom: 4vh;
+}
+
+.cumpleanos-layout #birthday-list {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 80%;
+    align-items: center;
+}
+
+.birthday-item-clean {
+    font-size: 3.5vw; /* Tamaño reducido para encajar a todos */
+    padding: 1.2vh 0;
+    width: 100%;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15); /* Separador elegante */
+    text-shadow: 0px 2px 10px rgba(0, 0, 0, 0.9);
+}
+
+.birthday-item-clean:last-child {
+    border-bottom: none;
+}
+
+.birthday-item-clean .name {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.birthday-item-clean .date {
+    color: #fbbf24;
+    font-weight: 400;
+    margin-left: 1vw;
+}
+
+.badge-hoy {
+    color: #10b981; /* Verde esmeralda */
+    font-weight: 800;
+}
+
+.badge-manana {
+    color: #60a5fa; /* Azul claro */
+    font-style: italic;
+}
+
+/* =========================================================
+   OTROS MÓDULOS (Anuncios y vacíos)
    ========================================================= */
 #birthday-list {
     font-size: 5vw;

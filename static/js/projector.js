@@ -6,11 +6,9 @@ let lastRenderedState = { action: 'clear' };
 const urlParams = new URLSearchParams(window.location.search);
 const isMonitor = urlParams.get('monitor') === 'true';
 
-// Inyección de clase para ocultar la barra al público pero dejarla en el control
 if (isMonitor) {
     document.body.classList.add('is-monitor');
 
-    // Capturador de scroll: Avisa al control maestro cuando mueves el texto
     document.addEventListener('scroll', (e) => {
         if(e.target.id === 'content-layer') {
             window.parent.postMessage({
@@ -35,7 +33,7 @@ function connectWebSocket() {
     };
 
     ws.onclose = () => {
-        console.warn('⚠️ Conexión de proyección interrumpida. Reintentando reconexión automática en 1 segundo...');
+        console.warn('⚠️ Conexión interrumpida. Reintentando reconexión en 1 segundo...');
         setTimeout(connectWebSocket, 1000);
     };
 
@@ -55,9 +53,7 @@ function connectWebSocket() {
 }
 
 function executeCommand(cmd, isReconnect = false) {
-    if (!isReconnect) {
-        console.log('📥 Ejecutando comando:', cmd.action, cmd);
-    }
+    if (!isReconnect) console.log('📥 Ejecutando comando:', cmd.action, cmd);
 
     switch (cmd.action) {
         case 'set_module':
@@ -77,11 +73,17 @@ function executeCommand(cmd, isReconnect = false) {
                 if (isMonitor) {
                     Engine.DOM.bgAudio.src = cmd.src;
                     Engine.DOM.bgAudio.volume = cmd.volume !== undefined ? cmd.volume : 1.0;
-                    Engine.DOM.bgAudio.muted = false;
+                    Engine.DOM.bgAudio.muted = cmd.muted || false;
                     Engine.DOM.bgAudio.play().catch(e => console.error('Bloqueo de audio:', e));
                 } else {
                     Engine.DOM.bgAudio.pause();
                 }
+            }
+            break;
+        case 'toggle_mute':
+            if (isMonitor) {
+                Engine.DOM.bgAudio.muted = cmd.mute;
+                console.log(`Audio en control ${cmd.mute ? 'silenciado' : 'activado'}`);
             }
             break;
         case 'stop_media':
@@ -89,10 +91,11 @@ function executeCommand(cmd, isReconnect = false) {
             Engine.DOM.bgVideo.pause();
             break;
         case 'load_birthdays':
-            Engine.loadBirthdaysToDisplay(cmd.birthdays || []);
+            // CORRECCIÓN: El emisor envía cmd.cumpleanos, el receptor debe leer cmd.cumpleanos
+            Engine.loadBirthdaysToDisplay(cmd.cumpleanos || [], cmd.title, cmd.text);
             break;
         case 'load_anuncios':
-            Engine.loadAnunciosToDisplay(cmd.anuncios || []);
+            Engine.loadAnunciosToDisplay(cmd.anuncios || [], cmd.title, cmd.text);
             break;
         case 'blackout':
             Engine.DOM.blackoutLayer.style.display = 'block';
@@ -104,7 +107,6 @@ function executeCommand(cmd, isReconnect = false) {
             Engine.clearContent();
             break;
         case 'sync_scroll':
-            // Recibe la orden de scroll del control maestro y la aplica al esclavo
             if (!isMonitor) {
                 const layer = document.getElementById('content-layer');
                 if (layer) layer.scrollTop = cmd.scrollTop;
@@ -121,6 +123,5 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedBgColor = localStorage.getItem('global_current_bg_color') || '#000000';
 
     Engine.setBackground(savedBgType, savedBgSrc, savedBgColor);
-
     connectWebSocket();
 });

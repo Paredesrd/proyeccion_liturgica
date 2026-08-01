@@ -1,6 +1,9 @@
 export let ws = null;
 export let currentWsModule = null;
 
+// Cola de comandos para tolerancia a fallos de red
+const commandQueue = [];
+
 export function initWebSocket(statusElementId) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/control`;
@@ -10,19 +13,26 @@ export function initWebSocket(statusElementId) {
 
     ws.onopen = () => {
         if (statusEl) {
-            statusEl.textContent = 'Conectado';
-            statusEl.className = 'badge bg-success p-2 fs-6';
+            statusEl.textContent = 'Conectado (Sync Activa)';
+            statusEl.className = 'badge bg-success p-2 fs-6 shadow-sm';
         }
         console.log('✅ Capa de transporte WebSocket restablecida y estable');
+
+        // Procesar cola de comandos retenidos
+        while (commandQueue.length > 0) {
+            const payload = commandQueue.shift();
+            ws.send(JSON.stringify(payload));
+            console.log('📤 Comando desencolado y transmitido:', payload.action);
+        }
     };
 
     ws.onclose = () => {
         if (statusEl) {
-            statusEl.textContent = 'Reconectando...';
-            statusEl.className = 'badge bg-warning text-dark p-2 fs-6';
+            statusEl.textContent = 'Falla de Red. Reconectando...';
+            statusEl.className = 'badge bg-danger text-white p-2 fs-6 shadow-sm';
         }
-        console.warn('⚠️ Transporte desconectado. Intentando reconexión automática en curso...');
-        setTimeout(() => initWebSocket(statusElementId), 1500);
+        console.warn('⚠️ Transporte desconectado. Intentando reconexión automática...');
+        setTimeout(() => initWebSocket(statusElementId), 2000);
     };
 
     ws.onerror = (error) => {
@@ -35,20 +45,13 @@ export function setWsActiveModule(moduleName) {
 }
 
 export function sendCommand(action, data = {}) {
+    const payload = { action, module: currentWsModule, ...data };
+
     if (ws && ws.readyState === WebSocket.OPEN) {
-        const payload = { action, module: currentWsModule, ...data };
         ws.send(JSON.stringify(payload));
-        console.log('📤 Comando inyectado en bus:', action, data);
+        console.log('📤 Comando inyectado en bus:', action);
     } else {
-        console.warn('⚠️ Enlace temporalmente ocupado. Reintentando envío en cola...');
-        setTimeout(() => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const payload = { action, module: currentWsModule, ...data };
-                ws.send(JSON.stringify(payload));
-                console.log('📤 Comando recuperado y enviado:', action, data);
-            } else {
-                alert('Fallo crítico de transmisión. Compruebe la estabilidad de la red local.');
-            }
-        }, 500);
+        console.warn(`⚠️ Enlace caído. Comando '${action}' retenido en cola local.`);
+        commandQueue.push(payload);
     }
 }

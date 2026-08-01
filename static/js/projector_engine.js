@@ -25,10 +25,10 @@ export function setText(title, text, variant) {
     DOM.mainText.textContent = text || '';
     DOM.mainText.style.whiteSpace = 'pre-line';
 
-    // Purga de alteraciones locales heredadas de módulos colindantes
     DOM.mainTitle.style.color = '';
 
-    DOM.contentLayer.classList.remove('init-layout', 'saludo-layout', 'predica-layout');
+    // Limpieza de todas las variantes posibles
+    DOM.contentLayer.classList.remove('init-layout', 'saludo-layout', 'predica-layout', 'cenia-layout', 'cumpleanos-layout');
 
     if (variant === 'init') {
         DOM.contentLayer.classList.add('init-layout');
@@ -36,6 +36,8 @@ export function setText(title, text, variant) {
         DOM.contentLayer.classList.add('saludo-layout');
     } else if (variant === 'predica') {
         DOM.contentLayer.classList.add('predica-layout');
+    } else if (variant === 'cenia') {
+        DOM.contentLayer.classList.add('cenia-layout');
     }
 }
 
@@ -45,7 +47,7 @@ export function clearContent() {
     DOM.lyricsContainer.innerHTML = '';
     DOM.birthdayList.innerHTML = '';
     DOM.mainTitle.style.color = '';
-    DOM.contentLayer.classList.remove('init-layout', 'saludo-layout', 'predica-layout');
+    DOM.contentLayer.classList.remove('init-layout', 'saludo-layout', 'predica-layout', 'cenia-layout', 'cumpleanos-layout');
 
     const oldLabel = document.getElementById('bible-version-label');
     if (oldLabel) oldLabel.remove();
@@ -59,7 +61,7 @@ export function resetModuleState() {
 }
 
 export function showBibleVerse(reference, text, version) {
-    DOM.contentLayer.classList.remove('init-layout', 'saludo-layout', 'predica-layout');
+    DOM.contentLayer.classList.remove('init-layout', 'saludo-layout', 'predica-layout', 'cenia-layout', 'cumpleanos-layout');
 
     DOM.mainTitle.textContent = reference;
     DOM.mainTitle.style.color = '#fbbf24';
@@ -113,48 +115,61 @@ export function setBackground(type, src, color) {
     }
 }
 
-export function loadBirthdaysToDisplay(birthdays) {
+export function loadBirthdaysToDisplay(birthdays, customTitle, customText) {
+    // Inyectamos la variante exclusiva para aislar el CSS
+    DOM.contentLayer.classList.remove('init-layout', 'saludo-layout', 'predica-layout', 'cenia-layout');
+    DOM.contentLayer.classList.add('cumpleanos-layout');
+
+    DOM.mainTitle.textContent = customTitle || '¡Feliz Cumpleaños!';
+
+    DOM.mainText.textContent = customText || '';
+    DOM.mainText.style.whiteSpace = 'pre-line';
+
+    DOM.birthdayList.innerHTML = '';
+
     if (!birthdays || birthdays.length === 0) {
-        DOM.birthdayList.innerHTML = '<p class="no-data">Ausencia de registros para esta semana</p>';
-        DOM.mainTitle.textContent = '¡Feliz Cumpleaños!';
-        DOM.mainText.textContent = '';
+        DOM.birthdayList.innerHTML = '<p class="no-data" style="margin-top: 5vh; line-height: 1.5; text-align: center; font-style: italic; color: #e5e7eb; max-width: 80%; margin-left: auto; margin-right: auto; font-size: 3.5vw;">Esta semana no tenemos cumpleañeros registrados.<br>¡Damos gracias a Dios por la vida de cada uno de ustedes!</p>';
         return;
     }
 
-    DOM.mainTitle.textContent = '🎉 ¡Feliz Cumpleaños!';
-    DOM.mainTitle.style.color = '#ffffff';
-    DOM.mainText.textContent = '';
-    DOM.birthdayList.innerHTML = '';
-
+    // Estructura minimalista
     birthdays.forEach(cumple => {
         const item = document.createElement('div');
-        item.className = 'birthday-item';
+        item.className = 'birthday-item-clean';
 
-        let emoji = '🎂';
-        let label = '';
-
+        let highlight = '';
         if (cumple.es_hoy) {
-            emoji = '🎉';
-            label = ' - ¡HOY!';
+            highlight = ' <span class="badge-hoy">— ¡HOY!</span>';
         } else if (cumple.es_manana) {
-            emoji = '🎈';
-            label = ' - Mañana';
+            highlight = ' <span class="badge-manana">— Mañana</span>';
         }
 
-        item.innerHTML = `${emoji} <strong>${cumple.nombre}</strong>${label} <span style="color: #fbbf24;">(${cumple.fecha})</span>`;
+        item.innerHTML = `<span class="name">${cumple.nombre}</span> <span class="date">(${cumple.fecha})</span>${highlight}`;
         DOM.birthdayList.appendChild(item);
     });
 }
 
-export function loadAnunciosToDisplay(anuncios) {
+export function loadAnunciosToDisplay(anuncios, customTitle, customText) {
+    DOM.contentLayer.classList.remove('init-layout', 'saludo-layout', 'predica-layout', 'cenia-layout', 'cumpleanos-layout');
+
+    DOM.mainTitle.textContent = customTitle || '📢 Anuncios Generales';
+    DOM.mainTitle.style.color = '#fbbf24';
+
+    DOM.mainText.textContent = customText || '';
+    DOM.mainText.style.whiteSpace = 'pre-line';
+
+    DOM.birthdayList.innerHTML = '';
+
     if (!anuncios || anuncios.length === 0) {
-        DOM.mainTitle.textContent = '📢 Anuncios';
-        DOM.mainText.textContent = 'Sin datos operativos';
+        DOM.birthdayList.innerHTML = '<p class="no-data" style="margin-top:20px;">Sin anuncios operativos</p>';
         return;
     }
 
-    const anuncio = anuncios[0];
-    DOM.mainTitle.textContent = '📢 ' + (anuncio.titulo || 'Anuncio');
-    DOM.mainText.textContent = anuncio.contenido || '';
-    DOM.mainText.style.whiteSpace = 'pre-line';
+    anuncios.forEach(a => {
+        const item = document.createElement('div');
+        // Mantenemos el estilo de anuncio, separándolo del de cumpleaños
+        item.className = 'birthday-item';
+        item.innerHTML = `<div style="color: #60a5fa; margin-bottom: 5px;">🔹 ${a.titulo}</div><div style="font-size: 0.8em; font-weight: 500; color: #e5e7eb;">${a.contenido}</div>`;
+        DOM.birthdayList.appendChild(item);
+    });
 }

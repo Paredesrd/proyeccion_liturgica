@@ -19,20 +19,20 @@ class TextoBiblico(Base):
     id = Column(Integer, primary_key=True, index=True)
     referencia = Column(String, index=True, nullable=False)
     texto = Column(Text, nullable=False)
-    version = Column(String, default="RVR1960")
+    version = Column(String, default="RVR1960", index=True)
 
 class Ofrenda(Base):
     __tablename__ = "ofrendas"
     id = Column(Integer, primary_key=True, index=True)
-    tipo = Column(String, nullable=False)
+    tipo = Column(String, index=True, nullable=False)
     monto = Column(Integer, nullable=True)
     descripcion = Column(Text, nullable=True)
-    fecha = Column(Date, nullable=False)
+    fecha = Column(Date, nullable=False, index=True)
     anonima = Column(Boolean, default=False)
 
 class Cancion(Base):
     __tablename__ = "canciones"
     id = Column(Integer, primary_key=True, index=True)
     titulo = Column(String, index=True, nullable=False)
-    autor = Column(String, nullable=True)
+    autor = Column(String, index=True, nullable=True)
     letra = Column(Text, nullable=False)
