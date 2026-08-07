@@ -1,6 +1,7 @@
-import { API } from './api_client.js';
+import { API } from './api_client.js?v=2'; // <-- Cache-buster inyectado
 
 // Exposición imperativa al DOM Window
+window.eliminarFondo = eliminarFondo;
 window.eliminarCumpleanos = eliminarCumpleanos;
 window.cambiarEstadoAnuncio = cambiarEstadoAnuncio;
 window.eliminarAnuncio = eliminarAnuncio;
@@ -15,22 +16,26 @@ let globalCatalog = [];
 let currentSetlistIds = [];
 let bosquejoSlides = [];
 
-// Generador de cabeceras de seguridad
 const getHeaders = (isJson = true) => {
     const h = { 'X-API-Key': 'cambiar-esto-en-produccion-inmediatamente' };
     if (isJson) h['Content-Type'] = 'application/json';
     return h;
 };
 
-document.addEventListener('DOMContentLoaded', async () => {
+// ==================== INICIALIZACIÓN BLINDADA CONTRA RACE CONDITIONS ====================
+async function initAdminPanel() {
+    cargarFondos();
     cargarCumpleanos();
     cargarAnuncios();
     cargarCanciones();
 
-    // Arranque asíncrono para bosquejo
-    const predicaRes = await API.predica.getBosquejo();
-    bosquejoSlides = predicaRes.diapositivas || [];
-    renderTablaBosquejo();
+    try {
+        const predicaRes = await API.predica.getBosquejo();
+        bosquejoSlides = predicaRes.diapositivas || [];
+        renderTablaBosquejo();
+    } catch (e) {
+        console.error("Error al sincronizar bosquejo:", e);
+    }
 
     const formFondos = document.getElementById('form-fondos');
     if (formFondos) {
@@ -50,8 +55,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 status.innerText = '✅ Fondo subido exitosamente.';
                 status.style.color = '#16a34a';
                 formFondos.reset();
+                cargarFondos(); // Refresca la cuadrícula inmediatamente
             } else {
-                status.innerText = '❌ Fallo crítico.';
+                status.innerText = '❌ Fallo crítico de validación o red.';
                 status.style.color = '#dc2626';
             }
             btn.innerText = originalText;
@@ -59,61 +65,128 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    document.getElementById('form-cumpleanos').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const nombre = document.getElementById('input-nombre').value;
-        const fecha = document.getElementById('input-fecha').value;
+    const formCumpleanos = document.getElementById('form-cumpleanos');
+    if (formCumpleanos) {
+        formCumpleanos.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nombre = document.getElementById('input-nombre').value;
+            const fecha = document.getElementById('input-fecha').value;
 
-        try {
-            const response = await fetch('/api/admin/birthdays', {
-                method: 'POST',
-                headers: getHeaders(true),
-                body: JSON.stringify({ nombre, fecha })
-            });
-            if (response.ok) { document.getElementById('form-cumpleanos').reset(); cargarCumpleanos(); }
-        } catch (error) { console.error(error); }
-    });
+            try {
+                const response = await fetch('/api/admin/birthdays', {
+                    method: 'POST',
+                    headers: getHeaders(true),
+                    body: JSON.stringify({ nombre, fecha })
+                });
+                if (response.ok) { formCumpleanos.reset(); cargarCumpleanos(); }
+            } catch (error) { console.error(error); }
+        });
+    }
 
-    document.getElementById('form-anuncios').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const titulo = document.getElementById('input-titulo-anuncio').value;
-        const contenido = document.getElementById('input-contenido-anuncio').value;
+    const formAnuncios = document.getElementById('form-anuncios');
+    if (formAnuncios) {
+        formAnuncios.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const titulo = document.getElementById('input-titulo-anuncio').value;
+            const contenido = document.getElementById('input-contenido-anuncio').value;
 
-        try {
-            const response = await fetch('/api/admin/anuncios', {
-                method: 'POST',
-                headers: getHeaders(true),
-                body: JSON.stringify({ titulo, contenido, activo: true })
-            });
-            if (response.ok) { document.getElementById('form-anuncios').reset(); cargarAnuncios(); }
-        } catch (error) { console.error(error); }
-    });
+            const activoCheck = document.getElementById('input-activo-anuncio');
+            const activo = activoCheck ? activoCheck.checked : false;
 
-    document.getElementById('form-canciones').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const titulo = document.getElementById('input-titulo-cancion').value;
-        const letra = document.getElementById('input-letra-cancion').value;
+            try {
+                const response = await fetch('/api/admin/anuncios', {
+                    method: 'POST',
+                    headers: getHeaders(true),
+                    body: JSON.stringify({ titulo, contenido, activo: activo })
+                });
+                if (response.ok) { formAnuncios.reset(); cargarAnuncios(); }
+            } catch (error) { console.error(error); }
+        });
+    }
 
-        try {
-            const response = await fetch('/api/admin/canciones', {
-                method: 'POST',
-                headers: getHeaders(true),
-                body: JSON.stringify({ titulo: titulo, letra: letra, autor: "" })
-            });
-            if (response.ok) { document.getElementById('form-canciones').reset(); cargarCanciones(); }
-        } catch (error) { console.error(error); }
-    });
+    const formCanciones = document.getElementById('form-canciones');
+    if (formCanciones) {
+        formCanciones.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const titulo = document.getElementById('input-titulo-cancion').value;
+            const letra = document.getElementById('input-letra-cancion').value;
 
-    // Controlador de Bosquejo
-    document.getElementById('form-bosquejo').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const titulo = document.getElementById('input-titulo-slide').value;
-        const contenido = document.getElementById('input-contenido-slide').value;
-        bosquejoSlides.push({ id: Date.now(), titulo, contenido });
-        document.getElementById('form-bosquejo').reset();
-        renderTablaBosquejo();
-    });
-});
+            try {
+                const response = await fetch('/api/admin/canciones', {
+                    method: 'POST',
+                    headers: getHeaders(true),
+                    body: JSON.stringify({ titulo: titulo, letra: letra, autor: "" })
+                });
+                if (response.ok) { formCanciones.reset(); cargarCanciones(); }
+            } catch (error) { console.error(error); }
+        });
+    }
+
+    const formBosquejo = document.getElementById('form-bosquejo');
+    if (formBosquejo) {
+        formBosquejo.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const titulo = document.getElementById('input-titulo-slide').value;
+            const contenido = document.getElementById('input-contenido-slide').value;
+            bosquejoSlides.push({ id: Date.now(), titulo, contenido });
+            formBosquejo.reset();
+            renderTablaBosquejo();
+        });
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAdminPanel);
+} else {
+    initAdminPanel();
+}
+
+/* ==================== MÓDULO FONDOS MULTIMEDIA ==================== */
+async function cargarFondos() {
+    try {
+        const data = await API.media.getBackgrounds();
+        renderizarGaleriaFondos(data.backgrounds);
+    } catch(e) {
+        document.getElementById('galeria-fondos').innerHTML = '<p class="text-danger text-center w-100 fw-bold">Error al conectar con la base de datos de fondos.</p>';
+    }
+}
+
+function renderizarGaleriaFondos(fondos) {
+    const container = document.getElementById('galeria-fondos');
+    if (!fondos || fondos.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center w-100">Catálogo vacío. Suba archivos para comenzar.</p>';
+        return;
+    }
+
+    container.innerHTML = fondos.map(fondo => {
+        const isVideo = fondo.filename.match(/\.(mp4|webm)$/i);
+        const previewHtml = isVideo
+            ? `<video src="${fondo.url}" class="card-img-top object-fit-cover border-bottom border-secondary" style="height: 140px; background: #000;" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>`
+            : `<img src="${fondo.url}" class="card-img-top object-fit-cover border-bottom border-secondary" style="height: 140px; background: #000;">`;
+
+        return `
+        <div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="card bg-black border-secondary h-100 shadow-sm">
+                ${previewHtml}
+                <div class="card-body p-2 d-flex flex-column justify-content-between">
+                    <p class="text-white small text-truncate mb-2 fw-bold" title="${fondo.filename}">${fondo.filename}</p>
+                    <button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="eliminarFondo('${fondo.raw_filename}')">🗑️ Eliminar</button>
+                </div>
+            </div>
+        </div>
+        `;
+    }).join('');
+}
+
+async function eliminarFondo(filename) {
+    if(!confirm('¿Destruir este fondo permanentemente? Esto afectará a los módulos que lo usen.')) return;
+    const success = await API.media.deleteBackground(filename);
+    if(success) {
+        cargarFondos();
+    } else {
+        alert("Error de permisos o red al eliminar el archivo.");
+    }
+}
 
 /* ==================== MÓDULO BOSQUEJO ==================== */
 function renderTablaBosquejo() {
@@ -257,9 +330,17 @@ function renderizarTablaCumpleanos(data) {
     const tbody = document.querySelector('#tabla-cumpleanos tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
+
     data.forEach(item => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${item.nombre}</td><td>${item.fecha}</td>
+        let badge = '';
+        if (item.es_hoy) {
+            badge = ' <span style="color: #ef4444; font-weight: bold; font-size: 0.8em; margin-left: 8px;">[HOY]</span>';
+        } else if (item.es_manana) {
+            badge = ' <span style="color: #f59e0b; font-weight: bold; font-size: 0.8em; margin-left: 8px;">[MAÑANA]</span>';
+        }
+
+        tr.innerHTML = `<td>${item.nombre}${badge}</td><td>${item.fecha}</td>
             <td><button class="btn-danger" onclick="eliminarCumpleanos(${item.id})">Eliminar</button></td>`;
         tbody.appendChild(tr);
     });

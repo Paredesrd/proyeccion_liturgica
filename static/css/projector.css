@@ -29,7 +29,6 @@ body, html {
     height: 100%;
     padding: 6vh 4vw;
     overflow-y: auto;
-
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -69,7 +68,7 @@ body:not(.is-monitor) #content-layer {
 }
 
 /* =========================================================
-   MÓDULO: BIBLIA (Letras colosales)
+   ESTILOS BASE DE TEXTO (Heredado por módulos sin clase específica)
    ========================================================= */
 #main-title {
     font-size: 9vw;
@@ -93,16 +92,26 @@ body:not(.is-monitor) #content-layer {
 }
 
 /* =========================================================
-   MÓDULO: ALABANZAS (Impacto visual masivo para 2 líneas)
+   VARIANTE: ALABANZAS (Fuente gigante, un renglón multilínea)
    ========================================================= */
-#lyrics-container {
-    font-size: 13vw;
-    font-weight: 800;
-    color: #ffffff;
-    line-height: 1.2;
+.alabanzas-layout {
+    justify-content: center !important;
+    padding: 2vh 2vw !important; /* Padding mínimo forzado para aprovechar la pantalla */
+}
+
+.alabanzas-layout #main-text {
+    font-size: 11vw; /* Disparo masivo de legibilidad */
+    font-weight: 900;
+    line-height: 1.15; /* Interlineado comprimido para saltos de línea suaves */
     width: 100%;
     max-width: 98%;
-    text-shadow: 0px 4px 20px rgba(0, 0, 0, 0.9), 0px 2px 8px rgba(0, 0, 0, 1);
+    text-shadow: 0px 5px 25px rgba(0, 0, 0, 0.9), 0px 2px 10px rgba(0, 0, 0, 1);
+}
+
+.alabanzas-layout #main-title {
+    font-size: 8vw; /* Tamaño reducido para el título cuando se proyecta aisladamente */
+    color: #fbbf24;
+    margin-bottom: 1vh;
 }
 
 /* =========================================================
@@ -119,6 +128,28 @@ body:not(.is-monitor) #content-layer {
     font-size: 4vw;
     font-weight: 600;
     color: #e5e7eb;
+}
+
+/* =========================================================
+   VARIANTE: SALUDOS
+   ========================================================= */
+.saludo-layout {
+    justify-content: center !important;
+}
+
+.saludo-layout #main-title {
+    font-size: 9vw;
+    font-weight: 900;
+    color: #fbbf24;
+    margin-bottom: 2vh;
+    text-shadow: 0px 5px 20px rgba(0, 0, 0, 0.9);
+}
+
+.saludo-layout #main-text {
+    font-size: 5vw;
+    font-weight: 600;
+    color: #e5e7eb;
+    line-height: 1.4;
 }
 
 /* =========================================================

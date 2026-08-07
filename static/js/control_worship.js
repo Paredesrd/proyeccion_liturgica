@@ -1,5 +1,6 @@
 import { API } from './api_client.js';
 import { sendCommand } from './ws_client.js';
+import { enforceLiveScene } from './control_core.js';
 
 export const worshipState = {
     catalog: [],
@@ -8,12 +9,8 @@ export const worshipState = {
 };
 
 export function fragmentarLetra(letra) {
-    const lineas = letra.split('\n').map(l => l.trim()).filter(l => l !== '');
-    const bloques = [];
-    for (let i = 0; i < lineas.length; i += 2) {
-        bloques.push(lineas.slice(i, i + 2).join('\n'));
-    }
-    return bloques;
+    // Reducción algorítmica: Un renglón por bloque, descartando saltos de línea vacíos
+    return letra.split('\n').map(l => l.trim()).filter(l => l !== '');
 }
 
 export async function uiLoadSetlist() {
@@ -29,7 +26,6 @@ export async function uiLoadSetlist() {
         const setlistData = await API.canciones.getSetlist();
         const setlistIds = setlistData.canciones_ids || [];
 
-        // Mapeo estricto contra la base de datos
         worshipState.setlist = setlistIds.map(id => canciones.find(c => c.id === id)).filter(Boolean);
 
         renderSetlist();
@@ -48,8 +44,8 @@ export function renderSetlist() {
     }
 
     container.innerHTML = worshipState.setlist.map(song => `
-        <div class="d-flex justify-content-between align-items-center bg-dark border border-secondary rounded p-2 mb-2">
-            <span class="text-white fw-bold cursor-pointer flex-grow-1" onclick="loadLiveSong(${song.id})" style="cursor: pointer;">🎶 ${song.titulo}</span>
+        <div class="d-flex justify-content-between align-items-center bg-dark border border-secondary rounded p-2 mb-2" style="transition: 0.2s;">
+            <span class="text-white fw-bold flex-grow-1" onclick="window.loadLiveSong(${song.id})" style="cursor: pointer;">🎵 ${song.titulo}</span>
         </div>
     `).join('');
 }
@@ -63,26 +59,84 @@ export function loadLiveSong(songId) {
     const fragmentos = fragmentarLetra(song.letra);
 
     let html = `
-        <h6 class="text-info fw-bold mb-3">En Vivo: ${song.titulo}</h6>
-        <div class="d-flex flex-wrap gap-2">
-            <button class="btn btn-warning fw-bold mb-2 w-100" onclick="clearLiveLyrics()">🧹 Limpiar Letra (Mantener Fondo)</button>
-            <button class="btn btn-outline-light text-start p-2 w-100 fw-bold" onclick="sendCommand('set_text', {title: '${song.titulo.replace(/'/g, "\\'")}', text: ''})">
-                [Mostrar Título]
-            </button>
+        <div class="card bg-black border-secondary shadow-sm mb-3">
+            <div class="card-header border-secondary text-info fw-bold small">
+                TRACK ACTIVO: ${song.titulo.toUpperCase()}
+            </div>
+            <div class="card-body p-2 d-flex flex-wrap gap-2">
+                <button class="btn btn-warning fw-bold flex-grow-1 py-2 shadow-sm" onclick="window.clearLiveLyrics()">
+                    🧹 Limpiar Pantalla
+                </button>
+                <button id="lyric-btn-title" class="btn btn-outline-light flex-grow-1 fw-bold py-2 shadow-sm lyric-trigger-btn" onclick="window.fireLyricTrigger('${song.titulo.replace(/'/g, "\\'")}', '', 'lyric-btn-title')">
+                    [Proyectar Título]
+                </button>
+            </div>
+        </div>
+        <div class="d-flex flex-column gap-2" style="max-height: 50vh; overflow-y: auto; padding-right: 5px;">
     `;
 
-    fragmentos.forEach(bloque => {
+    fragmentos.forEach((bloque, index) => {
         const safeText = bloque.replace(/'/g, "\\'").replace(/\n/g, "\\n");
+        const btnId = `lyric-btn-${index}`;
+
         html += `
-            <button class="btn btn-outline-info text-start p-2 w-100 lh-sm" onclick="sendCommand('set_text', {title: '', text: '${safeText}'})">
+            <button id="${btnId}" class="btn btn-outline-secondary text-start p-3 w-100 lh-sm fs-6 fw-bold shadow-sm lyric-trigger-btn" style="transition: 0.2s;" onclick="window.fireLyricTrigger('', '${safeText}', '${btnId}')">
                 ${bloque.replace(/\n/g, '<br>')}
             </button>
         `;
     });
+
     html += `</div>`;
     gridContainer.innerHTML = html;
 }
 
-export function clearLiveLyrics() {
-    sendCommand('set_text', { title: '', text: '' });
+export function fireLyricTrigger(title, text, btnId) {
+    // 1. IMPONER ESCENA: Lee las variables locales del módulo Alabanzas (fondo) y corta audios residuales
+    enforceLiveScene('alabanzas');
+
+    // 2. Ejecución del comando de texto
+    sendCommand('set_text', { title: title, text: text, variant: 'alabanzas' }, 'all');
+
+    // 3. Limpieza visual en el panel de control
+    document.querySelectorAll('.lyric-trigger-btn').forEach(btn => {
+        btn.classList.remove('btn-danger', 'text-white', 'border-danger');
+        if (btn.id === 'lyric-btn-title') {
+            btn.classList.add('btn-outline-light');
+        } else {
+            btn.classList.add('btn-outline-secondary');
+        }
+    });
+
+    // 4. Retroalimentación táctica
+    const activeBtn = document.getElementById(btnId);
+    if (activeBtn) {
+        if (btnId === 'lyric-btn-title') {
+            activeBtn.classList.remove('btn-outline-light');
+        } else {
+            activeBtn.classList.remove('btn-outline-secondary');
+        }
+        activeBtn.classList.add('btn-danger', 'text-white', 'border-danger');
+    }
 }
+
+export function clearLiveLyrics() {
+    // Mantener la contención de la escena visual y auditiva sin forzar pantalla negra
+    enforceLiveScene('alabanzas');
+
+    // Solo vaciar los textos
+    sendCommand('set_text', { title: '', text: '', variant: 'alabanzas' }, 'all');
+
+    document.querySelectorAll('.lyric-trigger-btn').forEach(btn => {
+        btn.classList.remove('btn-danger', 'text-white', 'border-danger');
+        if (btn.id === 'lyric-btn-title') {
+            btn.classList.add('btn-outline-light');
+        } else {
+            btn.classList.add('btn-outline-secondary');
+        }
+    });
+}
+
+// Inyección global para garantizar la ejecución desde el DOM
+window.loadLiveSong = loadLiveSong;
+window.fireLyricTrigger = fireLyricTrigger;
+window.clearLiveLyrics = clearLiveLyrics;

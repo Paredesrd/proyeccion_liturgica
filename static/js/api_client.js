@@ -1,6 +1,5 @@
 // Configuración centralizada de red
 const CONFIG = {
-    // Esta llave debe coincidir con SECRET_KEY de core/config.py
     API_KEY: 'cambiar-esto-en-produccion-inmediatamente',
     headers: function(isJson = true) {
         const h = { 'X-API-Key': this.API_KEY };
@@ -23,7 +22,7 @@ export const API = {
             try {
                 const response = await fetch('/api/media/upload', {
                     method: 'POST',
-                    headers: { 'X-API-Key': CONFIG.API_KEY }, // FormData no lleva Content-Type manual
+                    headers: { 'X-API-Key': CONFIG.API_KEY },
                     body: formData
                 });
                 if (!response.ok) {
@@ -42,6 +41,13 @@ export const API = {
             const response = await fetch('/api/media/backgrounds', { headers: CONFIG.headers() });
             if(!response.ok) throw new Error("Falla al listar catálogo de fondos");
             return await response.json();
+        },
+        deleteBackground: async (filename) => {
+            const response = await fetch(`/api/media/backgrounds/${encodeURIComponent(filename)}`, {
+                method: 'DELETE',
+                headers: CONFIG.headers(false)
+            });
+            return response.ok;
         }
     },
     bible: {
@@ -107,7 +113,6 @@ export const API = {
             return await response.json();
         },
         registerOfrenda: async (tipo, monto, desc, anonima) => {
-            // CORRECCIÓN CRÍTICA: Enviar JSON validado para Pydantic
             const payload = {
                 tipo: tipo,
                 monto: monto !== '' ? parseInt(monto) : null,

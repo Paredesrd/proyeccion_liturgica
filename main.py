@@ -34,7 +34,7 @@ if __name__ == "__main__":
     server_process = subprocess.Popen(
         [
             sys.executable, "-m", "uvicorn", "web_app:app",
-            "--host", settings.HOST,
+            "--host", "0.0.0.0",  # CAMBIO CRÍTICO: Fuerza la escucha en toda la red
             "--port", str(settings.PORT)
         ],
         stdout=sys.stdout,
@@ -44,6 +44,7 @@ if __name__ == "__main__":
     time.sleep(3)
     log.info("Servidor en línea. Desplegando interfaces de escritorio nativas...")
 
+    # El navegador local de la PC principal sigue usando 127.0.0.1 por eficiencia
     admin_url = f"http://127.0.0.1:{settings.PORT}/admin"
     webbrowser.open(admin_url)
 

@@ -1,7 +1,7 @@
 import { API } from './api_client.js';
 import { sendCommand } from './ws_client.js';
 
-// ==================== GESTOR UNIVERSAL DE FONDOS POR MÓDULO ====================
+// ==================== GESTOR DE FONDOS AISLADO POR MÓDULO ====================
 
 export async function uiLoadModuleBackgrounds(moduleName) {
     const selectEl = document.getElementById(`${moduleName}-bg-select`);
@@ -14,7 +14,6 @@ export async function uiLoadModuleBackgrounds(moduleName) {
         let savedType = localStorage.getItem(`${moduleName}_bg_type`);
         let savedColor = localStorage.getItem(`${moduleName}_bg_color`);
 
-        // ESTADO CERO: Si no hay configuración, se asume fondo negro.
         if (!savedType) {
             savedUrl = '';
             savedType = 'color';
@@ -39,14 +38,10 @@ export async function uiLoadModuleBackgrounds(moduleName) {
 
         selectEl.innerHTML = options;
 
-        localStorage.setItem('global_current_bg_type', savedType);
-        localStorage.setItem('global_current_bg_src', savedUrl || '');
-        localStorage.setItem('global_current_bg_color', savedColor);
-
         if (savedType === 'color') {
-            sendCommand('set_background', { type: 'color', color: savedColor });
+            sendCommand('set_background', { type: 'color', color: savedColor }, 'preview');
         } else {
-            sendCommand('set_background', { type: savedType, src: savedUrl });
+            sendCommand('set_background', { type: savedType, src: savedUrl }, 'preview');
         }
 
     } catch (e) {
@@ -66,11 +61,7 @@ export function applyModuleBackground(moduleName) {
         localStorage.setItem(`${moduleName}_bg_type`, 'color');
         localStorage.setItem(`${moduleName}_bg_color`, color);
 
-        localStorage.setItem('global_current_bg_type', 'color');
-        localStorage.setItem('global_current_bg_src', '');
-        localStorage.setItem('global_current_bg_color', color);
-
-        sendCommand('set_background', { type: 'color', color: color });
+        sendCommand('set_background', { type: 'color', color: color }, 'preview');
     } else {
         const bgSrc = val;
         const bgType = bgSrc.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? 'image' : 'video';
@@ -78,84 +69,148 @@ export function applyModuleBackground(moduleName) {
         localStorage.setItem(`${moduleName}_bg_type`, bgType);
         localStorage.setItem(`${moduleName}_bg_color`, '#000000');
 
-        localStorage.setItem('global_current_bg_type', bgType);
-        localStorage.setItem('global_current_bg_src', bgSrc);
-        localStorage.setItem('global_current_bg_color', '#000000');
-
-        sendCommand('set_background', { type: bgType, src: bgSrc });
+        sendCommand('set_background', { type: bgType, src: bgSrc }, 'preview');
     }
 }
 
 // ==================== MOTOR UNIFICADO PARA MÓDULOS DE SISTEMA ====================
 
-export async function updateStandardModuleConfig(modId) {
-    const btn = document.getElementById(`btn-${modId}-update`);
-    let origText = '';
-    if (btn) {
-        origText = btn.innerHTML;
-        btn.innerHTML = '⏳ Actualizando proyector...';
-        btn.disabled = true;
-    }
-
+export function syncPreviewText(modId) {
     const titleEl = document.getElementById(`${modId}-title`);
     const textEl = document.getElementById(`${modId}-text`);
-    if (titleEl) localStorage.setItem(`${modId}_title`, titleEl.value.trim());
-    if (textEl) localStorage.setItem(`${modId}_text`, textEl.value.trim());
 
-    const fileInput = document.getElementById(`${modId}-audio-file`);
-    if (fileInput && fileInput.files.length > 0) {
+    // PURGA DE CACHÉ: Destruye residuos en memoria para módulos controlados 100% por base de datos
+    if (!titleEl && !textEl) {
+        localStorage.removeItem(`${modId}_title`);
+        localStorage.removeItem(`${modId}_text`);
+        sendCommand('set_text', { title: '', text: '', variant: modId }, 'preview');
+        return;
+    }
+
+    const title = titleEl ? titleEl.value.trim() : '';
+    const text = textEl ? textEl.value.trim() : '';
+
+    if (titleEl) localStorage.setItem(`${modId}_title`, title);
+    if (textEl) localStorage.setItem(`${modId}_text`, text);
+
+    sendCommand('set_text', { title: title, text: text, variant: modId }, 'preview');
+}
+
+export async function autoUploadAudio(modId) {
+    const audioInput = document.getElementById(`${modId}-audio-file`);
+    const filenameDisplay = document.getElementById(`${modId}-audio-filename`);
+
+    if (!audioInput || audioInput.files.length === 0) return;
+
+    if (filenameDisplay) {
+        filenameDisplay.innerHTML = `⏳ Sincronizando pista en servidor...`;
+    }
+
+    try {
         const uploadedUrl = await API.media.upload(`${modId}-audio-file`, 'audio');
         if (uploadedUrl) {
             localStorage.setItem(`${modId}_audio_url`, uploadedUrl);
-            localStorage.setItem(`${modId}_audio_name`, fileInput.files[0].name);
-            const filenameDisplay = document.getElementById(`${modId}-audio-filename`);
-            if (filenameDisplay) filenameDisplay.innerHTML = `🎧 Pista asignada en sistema: <br><span class="text-white fw-bold">${fileInput.files[0].name}</span>`;
+            localStorage.setItem(`${modId}_audio_name`, audioInput.files[0].name);
+            if (filenameDisplay) {
+                filenameDisplay.innerHTML = `🎧 Pista asignada en sistema: <br><span class="text-white fw-bold">${audioInput.files[0].name}</span>`;
+            }
+        }
+    } catch (e) {
+        console.error("Fallo crítico en subida de audio:", e);
+        if (filenameDisplay) {
+            filenameDisplay.innerHTML = `❌ Fallo en la transmisión del archivo.`;
         }
     }
+}
 
-    if (modId === 'init') projectInicializacion();
-    else if (modId === 'saludo') projectSaludos();
-    else if (modId === 'cenia') projectSantaCena();
-    else if (modId === 'cumpleanos') projectCumpleanos();
-    else if (modId === 'anuncios') projectAnuncios();
+// ==================== PRE-VISUALIZACIÓN DE BASE DE DATOS ====================
 
-    if (btn) {
-        btn.innerHTML = '✅ Multimedia Actualizada';
-        setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 1500);
+export async function uiPreviewDatabaseData(modId) {
+    const previewEl = document.getElementById(`${modId}-preview`);
+    if (!previewEl) return;
+
+    previewEl.innerHTML = `<span class='text-info small fw-bold'>⏳ Sincronizando con base de datos...</span>`;
+
+    try {
+        let count = 0;
+        if (modId === 'cumpleanos') {
+            const data = await API.projection.getBirthdays();
+            count = data.cumpleanos ? data.cumpleanos.length : 0;
+        } else if (modId === 'anuncios') {
+            const data = await API.projection.getAnuncios();
+            count = data.anuncios ? data.anuncios.length : 0;
+        } else {
+            return;
+        }
+
+        if (count > 0) {
+            previewEl.innerHTML = `<span class='text-success fw-bold'>✅ ${count} registros listos para proyectar.</span>`;
+        } else {
+            previewEl.innerHTML = `<span class='text-warning fw-bold'>⚠️ Cero registros activos. Revise el administrador.</span>`;
+        }
+    } catch (e) {
+        console.error(`Error al pre-cargar datos para ${modId}:`, e);
+        previewEl.innerHTML = `<span class='text-danger fw-bold'>❌ Fallo de conexión con la base de datos.</span>`;
     }
 }
 
-export function toggleModuleMute(modId) {
-    let isMuted = localStorage.getItem(`${modId}_audio_muted`) === 'true';
-    isMuted = !isMuted;
-    localStorage.setItem(`${modId}_audio_muted`, isMuted);
+// ==================== IMPOSICIÓN ESTRICTA DE ESCENA EN VIVO ====================
 
-    const btn = document.getElementById(`btn-${modId}-mute`);
-    if (btn) {
-        btn.className = `btn ${isMuted ? 'btn-danger' : 'btn-success'} w-100 fw-bold mt-3 shadow-sm`;
-        btn.innerHTML = isMuted ? '🔇 Audio Silenciado (Click para Activar)' : '🔊 Audio Activo (Click para Silenciar)';
+export function enforceLiveScene(moduleName) {
+    const bgType = localStorage.getItem(`${moduleName}_bg_type`) || 'color';
+    const bgSrc = localStorage.getItem(`${moduleName}_bg_url`) || '';
+    const bgColor = localStorage.getItem(`${moduleName}_bg_color`) || '#000000';
+
+    if (bgType === 'color') {
+        sendCommand('set_background', { type: 'color', color: bgColor }, 'live');
+    } else {
+        sendCommand('set_background', { type: bgType, src: bgSrc }, 'live');
     }
 
-    sendCommand('toggle_mute', { mute: isMuted });
+    const audioSrc = localStorage.getItem(`${moduleName}_audio_url`) || '';
+
+    if (audioSrc) {
+        sendCommand('play_media', { type: 'audio', src: audioSrc, volume: 1.0, muted: false }, 'live');
+    } else {
+        sendCommand('stop_media', {}, 'live');
+    }
 }
 
-async function executeStandardProjection(modId, variant, wsCommand, fetchDbFunc = null) {
-    // ESTADO CERO: Extrae de localStorage o inyecta cadena vacía.
-    const title = localStorage.getItem(`${modId}_title`) || '';
-    const text = localStorage.getItem(`${modId}_text`) || '';
-    const audioSrc = localStorage.getItem(`${modId}_audio_url`) || '';
-    const isMuted = localStorage.getItem(`${modId}_audio_muted`) === 'true';
+// ==================== GATILLO MAESTRO ====================
+
+export function fireMasterTrigger(modId) {
+    syncPreviewText(modId);
+    enforceLiveScene(modId);
+
+    if (modId === 'init') executeStandardProjection('init', 'init', 'set_text', null, 'all');
+    else if (modId === 'saludo') executeStandardProjection('saludo', 'saludo', 'set_text', null, 'all');
+    else if (modId === 'cenia') executeStandardProjection('cenia', 'cenia', 'set_text', null, 'all');
+    else if (modId === 'cumpleanos') executeStandardProjection('cumpleanos', 'cumpleanos', 'load_birthdays', API.projection.getBirthdays, 'all');
+    else if (modId === 'anuncios') executeStandardProjection('anuncios', 'anuncios', 'load_anuncios', API.projection.getAnuncios, 'all');
+}
+
+async function executeStandardProjection(modId, variant, wsCommand, fetchDbFunc = null, target = 'live') {
+    let title = localStorage.getItem(`${modId}_title`) || '';
+    let text = localStorage.getItem(`${modId}_text`) || '';
+
+    // BLINDAJE DE EXTRACCIÓN: Garantiza que módulos de base de datos no sangren texto residual.
+    if (modId === 'cumpleanos' || modId === 'anuncios') {
+        title = '';
+        text = '';
+    }
 
     let dbData = [];
+
     if (fetchDbFunc) {
         try {
             const data = await fetchDbFunc();
             dbData = data[modId] || [];
             const previewEl = document.getElementById(`${modId}-preview`);
+
             if (previewEl) {
                 previewEl.innerHTML = dbData.length > 0
-                    ? `<span class='text-success fw-bold'>✅ ${dbData.length} registros listos para proyectar.</span>`
-                    : `<span class='text-secondary'>ℹ️ Cero registros activos.</span>`;
+                    ? `<span class='text-success fw-bold'>✅ ${dbData.length} registros en vivo.</span>`
+                    : `<span class='text-warning fw-bold'>⚠️ Cero registros activos.</span>`;
             }
         } catch(e) {
             console.error('Error sincronizando BD:', e);
@@ -163,25 +218,22 @@ async function executeStandardProjection(modId, variant, wsCommand, fetchDbFunc 
     }
 
     if (wsCommand === 'set_text') {
-        sendCommand('set_text', { title: title, text: text, variant: variant });
+        sendCommand('set_text', { title: title, text: text, variant: variant }, target);
     } else {
         const payload = { title: title, text: text };
+        // Envía los datos reales, permitiendo que el proyector dibuje su propio texto si está vacío
         payload[modId] = dbData;
-        sendCommand(wsCommand, payload);
-    }
-
-    if (audioSrc) {
-        sendCommand('play_media', { type: 'audio', src: audioSrc, volume: 1.0, muted: isMuted });
-    } else {
-        sendCommand('stop_media', {});
+        sendCommand(wsCommand, payload, target);
     }
 }
 
-export function projectInicializacion() { executeStandardProjection('init', 'init', 'set_text'); }
-export function projectSaludos() { executeStandardProjection('saludo', 'saludo', 'set_text'); }
-export function projectSantaCena() { executeStandardProjection('cenia', 'cenia', 'set_text'); }
-export function projectCumpleanos() { executeStandardProjection('cumpleanos', 'cumpleanos', 'load_birthdays', API.projection.getBirthdays); }
-export function projectAnuncios() { executeStandardProjection('anuncios', 'anuncios', 'load_anuncios', API.projection.getAnuncios); }
+// LIMPIEZA TÁCTICA DE MÓDULOS ESTÁNDAR
+export function clearStandardScreen(modId) {
+    enforceLiveScene(modId);
+    // ORDEN DE PURGA UNIVERSAL: Usar set_text vacío destruye cualquier texto o lista visible en el proyector
+    sendCommand('set_text', { title: '', text: '', variant: 'clear' }, 'all');
+}
+window.clearStandardScreen = clearStandardScreen;
 
 // ==================== MÓDULOS INTACTOS (Prédica, Biblia, Ofrendas) ====================
 
@@ -209,9 +261,10 @@ export async function uiLoadBosquejo() {
         `).join('');
 
         if (lastActiveSlide) {
-            sendCommand('set_text', { title: lastActiveSlide.titulo, text: lastActiveSlide.contenido, variant: 'predica' });
+            sendCommand('set_text', { title: lastActiveSlide.titulo, text: lastActiveSlide.contenido, variant: 'predica' }, 'preview');
         } else if (predicaSlides.length > 0) {
-            projectSlide(0);
+            lastActiveSlide = predicaSlides[0];
+            sendCommand('set_text', { title: lastActiveSlide.titulo, text: lastActiveSlide.contenido, variant: 'predica' }, 'preview');
         }
     } catch(e) {
         grid.innerHTML = '<p class="text-danger small text-center w-100 mb-0">Error de conectividad al recuperar bosquejo.</p>';
@@ -222,7 +275,33 @@ export function projectSlide(index) {
     const slide = predicaSlides[index];
     if (!slide) return;
     lastActiveSlide = slide;
-    sendCommand('set_text', { title: slide.titulo, text: slide.contenido, variant: 'predica' });
+    enforceLiveScene('predica');
+    sendCommand('set_text', { title: slide.titulo, text: slide.contenido, variant: 'predica' }, 'all');
+}
+
+export function clearPredicaScreen() {
+    enforceLiveScene('predica');
+    sendCommand('set_text', { title: '', text: '', variant: 'predica' }, 'all');
+}
+window.clearPredicaScreen = clearPredicaScreen;
+
+// PRE-FETCH DE ÍNDICE DE LIBROS PARA AUTOCOMPLETADO NATIVO
+export async function uiLoadBibleBooks(version) {
+    const datalist = document.getElementById('bible-books-list');
+    if (!datalist) return;
+
+    try {
+        const data = await API.bible.getBooks(version);
+        const libros = Array.isArray(data) ? data : (data.libros || []);
+
+        datalist.innerHTML = libros.map(libro => {
+            const sinAcentos = libro.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            return `<option value="${libro}">${sinAcentos}</option>`;
+        }).join('');
+    } catch (e) {
+        console.error("No se pudo extraer el índice de libros bíblicos:", e);
+        datalist.innerHTML = '';
+    }
 }
 
 export async function uiLoadBibleVersions() {
@@ -242,62 +321,48 @@ export async function uiLoadBibleVersions() {
             localStorage.setItem('bible_selected_version', savedVersion);
         }
         versionSelect.innerHTML = versiones.map(v => `<option value="${v}" ${v === savedVersion ? 'selected' : ''}>Versión: ${v}</option>`).join('');
-        versionSelect.onchange = () => { localStorage.setItem('bible_selected_version', versionSelect.value); };
+
+        uiLoadBibleBooks(savedVersion);
+
+        versionSelect.onchange = () => {
+            const newVersion = versionSelect.value;
+            localStorage.setItem('bible_selected_version', newVersion);
+            uiLoadBibleBooks(newVersion);
+        };
     } catch (e) {
         versionSelect.innerHTML = '<option value="">Error al cargar versiones</option>';
     }
 }
 
 export async function uiProjectBible() {
-    const book = document.getElementById('bible-book').value.trim();
+    const bookRaw = document.getElementById('bible-book').value.trim();
     const chapter = document.getElementById('bible-chapter').value.trim();
     const verse = document.getElementById('bible-verse').value.trim();
     const versionSelect = document.getElementById('bible-version-select');
     const version = versionSelect ? versionSelect.value : 'RVR1960';
 
-    if (!book || !chapter) { alert("⚠️ Por favor ingrese el libro y el capítulo."); return; }
+    if (!bookRaw || !chapter) { alert("⚠️ Por favor ingrese el libro y el capítulo."); return; }
+
+    const bookClean = bookRaw.replace(/^(S\.|San|Santo)\s+/i, '').trim();
 
     let queryParam = chapter;
     if (verse) queryParam = `${chapter}:${verse}`;
 
     try {
-        const { ok, data } = await API.bible.searchVerse(book, queryParam, version);
+        const { ok, data } = await API.bible.searchVerse(bookClean, queryParam, version);
         if (!ok || data.error) {
             alert(`❌ Error: ${data.detail || data.error || 'No se pudo procesar la escritura.'}`);
             return;
         }
-        sendCommand('show_bible_verse', { reference: data.referencia, version: data.version, text: data.texto });
+        enforceLiveScene('biblia');
+        sendCommand('show_bible_verse', { reference: data.referencia, version: data.version, text: data.texto }, 'all');
     } catch (e) {
         alert("❌ Fallo crítico de red o de base de datos al buscar versículo.");
     }
 }
 
-export async function uiRegistrarOfrenda() {
-    const tipo = document.getElementById('ofrenda-tipo').value;
-    const montoStr = document.getElementById('ofrenda-monto').value;
-    const desc = document.getElementById('ofrenda-desc').value;
-    const anonima = document.getElementById('ofrenda-anonima').checked;
-    const previewEl = document.getElementById('ofrenda-preview');
-    previewEl.innerHTML = "<span class='text-info'>Procesando transacción en servidor...</span>";
-    try {
-        const { ok, data } = await API.projection.registerOfrenda(tipo, montoStr, desc, anonima);
-        if (ok) {
-            document.getElementById('ofrenda-monto').value = '';
-            document.getElementById('ofrenda-desc').value = '';
-            document.getElementById('ofrenda-anonima').checked = false;
-            const m = data.monto !== null ? data.monto : 'Sin monto';
-            previewEl.innerHTML = `<span class='text-success fw-bold'>✅ Transacción Guardada. Tipo: ${data.tipo} | Monto: ${m}</span>`;
-        } else {
-            previewEl.innerHTML = `<span class='text-danger fw-bold'>❌ Transacción Rechazada: ${data.detail || 'Error de validación'}</span>`;
-        }
-    } catch (e) {
-        previewEl.innerHTML = "<span class='text-danger fw-bold'>❌ Error fatal de conectividad.</span>";
-    }
+export function clearBibleScreen() {
+    enforceLiveScene('biblia');
+    sendCommand('set_text', { title: '', text: '', variant: 'biblia' }, 'all');
 }
-
-export async function uiMostrarTotalOfrendas() {
-    try {
-        const data = await API.projection.getTotalOfrendas();
-        sendCommand('set_text', { title: 'Reporte Financiero', text: `Suma total consolidada:\n\n${data.total} ${data.moneda}` });
-    } catch (e) { alert('Imposible calcular los totales desde el backend.'); }
-}
+window.clearBibleScreen = clearBibleScreen;

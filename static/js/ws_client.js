@@ -22,7 +22,7 @@ export function initWebSocket(statusElementId) {
         while (commandQueue.length > 0) {
             const payload = commandQueue.shift();
             ws.send(JSON.stringify(payload));
-            console.log('📤 Comando desencolado y transmitido:', payload.action);
+            console.log(`📤 Comando desencolado [${payload.target.toUpperCase()}]:`, payload.action);
         }
     };
 
@@ -44,12 +44,12 @@ export function setWsActiveModule(moduleName) {
     currentWsModule = moduleName;
 }
 
-export function sendCommand(action, data = {}) {
-    const payload = { action, module: currentWsModule, ...data };
+// NUEVA ARQUITECTURA: El comando ahora exige especificar si va al monitor de control o al público
+export function sendCommand(action, data = {}, target = 'live') {
+    const payload = { action, module: currentWsModule, target, ...data };
 
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(payload));
-        console.log('📤 Comando inyectado en bus:', action);
     } else {
         console.warn(`⚠️ Enlace caído. Comando '${action}' retenido en cola local.`);
         commandQueue.push(payload);

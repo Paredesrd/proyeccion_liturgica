@@ -21,12 +21,15 @@ if (isMonitor) {
 
 function connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/projector`;
+
+    // ENRUTAMIENTO INTELIGENTE: Separación de canales PREVIEW y LIVE
+    const wsPath = isMonitor ? '/ws/preview' : '/ws/live';
+    const wsUrl = `${protocol}//${window.location.host}${wsPath}`;
 
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-        console.log('✅ Enlace de proyección establecido.');
+        console.log(`✅ Enlace de proyección establecido [Canal: ${wsPath}].`);
         if (lastRenderedState) {
             executeCommand(lastRenderedState, true);
         }
@@ -70,14 +73,10 @@ function executeCommand(cmd, isReconnect = false) {
             break;
         case 'play_media':
             if (cmd.type === 'audio') {
-                if (isMonitor) {
-                    Engine.DOM.bgAudio.src = cmd.src;
-                    Engine.DOM.bgAudio.volume = cmd.volume !== undefined ? cmd.volume : 1.0;
-                    Engine.DOM.bgAudio.muted = cmd.muted || false;
-                    Engine.DOM.bgAudio.play().catch(e => console.error('Bloqueo de audio:', e));
-                } else {
-                    Engine.DOM.bgAudio.pause();
-                }
+                Engine.DOM.bgAudio.src = cmd.src;
+                Engine.DOM.bgAudio.volume = cmd.volume !== undefined ? cmd.volume : 1.0;
+                Engine.DOM.bgAudio.muted = cmd.muted || false;
+                Engine.DOM.bgAudio.play().catch(e => console.error('Bloqueo de audio nativo:', e));
             }
             break;
         case 'toggle_mute':
@@ -87,11 +86,18 @@ function executeCommand(cmd, isReconnect = false) {
             }
             break;
         case 'stop_media':
+            // CORRECCIÓN TÁCTICA: Destrucción total de la instancia de audio para evitar fugas.
             Engine.DOM.bgAudio.pause();
+            Engine.DOM.bgAudio.removeAttribute('src'); // Arranca la referencia
+            Engine.DOM.bgAudio.load(); // Fuerza al navegador a purgar el buffer
+
+            // Destrucción de instancia de video, dejando el color de fondo persistente
             Engine.DOM.bgVideo.pause();
+            Engine.DOM.bgVideo.removeAttribute('src');
+            Engine.DOM.bgVideo.load();
+            Engine.DOM.bgVideo.style.display = 'none'; // Cortina visual para evitar frame fantasma
             break;
         case 'load_birthdays':
-            // CORRECCIÓN: El emisor envía cmd.cumpleanos, el receptor debe leer cmd.cumpleanos
             Engine.loadBirthdaysToDisplay(cmd.cumpleanos || [], cmd.title, cmd.text);
             break;
         case 'load_anuncios':
@@ -100,7 +106,7 @@ function executeCommand(cmd, isReconnect = false) {
         case 'blackout':
             Engine.DOM.blackoutLayer.style.display = 'block';
             Engine.DOM.bgAudio.pause();
-            Engine.DOM.bgVideo.pause();
+            // Blackout es temporal, no destruimos la instancia aquí
             break;
         case 'clear':
             Engine.DOM.blackoutLayer.style.display = 'none';
