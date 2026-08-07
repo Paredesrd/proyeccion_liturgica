@@ -1,1 +1,17 @@
-Nothing should be ignored based on the provided file changes, as they consist only of source code files (.py, .css, .js) and no build artifacts, dependencies, or temporary files.
+# Bases de datos de producción
+*.db
+*.sqlite3
+
+# Compilados de caché de Python
+__pycache__/
+*.py[cod]
+
+# Archivos multimedia dinámicos
+static/media/audio/*
+static/media/backgrounds/*
+
+# Entornos virtuales y configuraciones
+.venv/
+.idea/
+.vscode/
+.env
