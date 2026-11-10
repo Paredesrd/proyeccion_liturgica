@@ -195,7 +195,10 @@ async function renderDynamicControls(moduleName) {
         html += `
             <div class="d-flex flex-column gap-3">
                 <div class="card bg-black border-secondary shadow-sm">
-                    <div class="card-header border-secondary text-secondary fw-bold small">BUSCADOR BÍBLICO RÁPIDO</div>
+                    <div class="card-header border-secondary text-secondary fw-bold small d-flex justify-content-between align-items-center">
+                            <span>BUSCADOR BÍBLICO RÁPIDO</span>
+                            <button class="btn btn-sm btn-outline-warning py-0 px-2 fw-bold" onclick="window.openTextSearch()" title="Buscar por texto completo (Ctrl+K)">🔍 Texto</button>
+                        </div>
                     <div class="card-body">
                         <div class="row g-2">
                             <div class="col-12">

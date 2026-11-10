@@ -9,7 +9,7 @@ import socket
 from core.config import settings
 from core.logger import log
 from database.connection import init_db
-from routers import admin_router, projection_router, media_router, bible_router
+from routers import admin_router, projection_router, media_router, bible_router, search_router
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -36,6 +36,7 @@ app.include_router(admin_router.router)
 app.include_router(projection_router.router)
 app.include_router(media_router.router)
 app.include_router(bible_router.router)
+app.include_router(search_router.router)
 
 
 @app.on_event("startup")

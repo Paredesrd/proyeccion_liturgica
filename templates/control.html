@@ -6,6 +6,7 @@
     <title>Panel de Control Litúrgico</title>
     <link href="/static/vendor/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/control.css?v=100">
+    <link rel="stylesheet" href="/static/css/search_modal.css?v=1">
 </head>
 <body class="vh-100 d-flex flex-column overflow-hidden bg-body-tertiary">
     <nav class="navbar navbar-dark bg-dark border-bottom border-secondary px-3 flex-shrink-0">
@@ -351,5 +352,7 @@
         });
     })();
     </script>
+    {% include "partials/search_modal.html" %}
+    <script src="/static/js/search_modal.js?v=1"></script>
 </body>
 </html>

@@ -4,23 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Monitor de Escenario</title>
-    <!-- Meta Tags para Pantalla Completa en Tablets -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link href="/static/vendor/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/stage.css?v=7">
+    <link rel="stylesheet" href="/static/css/stage.css?v=8">
+    <link rel="stylesheet" href="/static/css/search_modal.css?v=1">
 </head>
 <body>
     <div class="stage-container">
         <!-- BARRA SUPERIOR -->
         <header class="status-bar">
-            <span class="title">🎤 Monitor de Escenario</span>
+            <div class="d-flex align-items-center gap-3">
+                <span class="title">🎤 Monitor de Escenario</span>
+                <!-- TOGGLE SEGMENTADO ESTILO APPLE -->
+                <div class="segmented-control">
+                    <div class="segmented-slider" id="segmented-slider"></div>
+                    <button id="mode-btn-predica" class="segment-btn active" onclick="window.switchView('predica')">Prédica</button>
+                    <button id="mode-btn-biblia" class="segment-btn" onclick="window.switchView('biblia')">Biblia</button>
+                </div>
+            </div>
             <div class="d-flex gap-2 align-items-center">
                 <button id="btn-fullscreen" class="btn-fullscreen" title="Pantalla Completa">
-                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-                    </svg>
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
                 </button>
                 <span id="connection-status" class="badge bg-danger">Desconectado</span>
             </div>
@@ -28,39 +34,28 @@
 
         <!-- CONTENIDO PRINCIPAL -->
         <div class="stage-layout">
-            <!-- MINIATURAS DE PRÉDICA (Ocultas en modo Biblia) -->
             <aside class="sidebar" id="predica-sidebar">
                 <div class="label">BOSQUEJO</div>
-                <div id="thumbnail-list" class="thumb-list">
-                    <div class="text-muted text-center py-3">Cargando...</div>
-                </div>
+                <div id="thumbnail-list" class="thumb-list"><div class="text-muted text-center py-3">Cargando...</div></div>
             </aside>
 
-            <!-- ÁREA CENTRAL -->
             <main class="main-view">
-                <!-- CONTROLES DE BIBLIA (Ocultos en modo Prédica) -->
                 <div class="bible-controls d-none" id="bible-controls">
                     <select id="bible-version" class="form-select form-select-sm" style="width: 120px;">
-                        <option value="RVR1960">RVR1960</option>
-                        <option value="NVI">NVI</option>
-                        <option value="NTV">NTV</option>
-                        <option value="TLA">TLA</option>
-                        <option value="NBLA">NBLA</option>
-                        <option value="DHHS94">DHHS94</option>
-                        <option value="PDT">PDT</option>
+                        <option value="RVR1960">RVR1960</option><option value="NVI">NVI</option><option value="NTV">NTV</option>
+                        <option value="TLA">TLA</option><option value="NBLA">NBLA</option><option value="DHHS94">DHHS94</option><option value="PDT">PDT</option>
                     </select>
-                    <input type="text" id="bible-book" class="form-control form-control-sm" placeholder="Libro (Ej. Juan)" style="flex: 1;" list="bible-books-list" autocomplete="off">
+                    <input type="text" id="bible-book" class="form-control form-control-sm" placeholder="Libro" style="flex: 1;" list="bible-books-list" autocomplete="off">
                     <datalist id="bible-books-list"></datalist>
                     <input type="number" id="bible-chapter" class="form-control form-control-sm" placeholder="Cap." style="width: 70px;">
                     <input type="number" id="bible-verse" class="form-control form-control-sm" placeholder="Vers." style="width: 70px;">
                     <button id="btn-search-bible" class="btn btn-sm btn-primary fw-bold">Buscar</button>
+                    <button id="btn-text-search" class="btn btn-sm btn-warning fw-bold" onclick="window.openTextSearch()">🔍 Texto</button>
                 </div>
 
                 <div class="panel current-panel" id="main-panel">
-                    <!-- Flechas Superpuestas -->
                     <button id="btn-prev" class="nav-arrow left-arrow">❮</button>
                     <button id="btn-next" class="nav-arrow right-arrow">❯</button>
-
                     <div class="label" id="mode-label">EN PANTALLA</div>
                     <div id="bible-reference" class="d-none text-warning mb-3 fw-bold fs-4"></div>
                     <h1 id="current-title"></h1>
@@ -69,6 +64,8 @@
             </main>
         </div>
     </div>
-    <script type="module" src="/static/js/stage.js?v=7"></script>
+    <script type="module" src="/static/js/stage.js?v=8"></script>
+    {% include "partials/search_modal.html" %}
+    <script src="/static/js/search_modal.js?v=1"></script>
 </body>
 </html>

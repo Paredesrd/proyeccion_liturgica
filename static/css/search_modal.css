@@ -1,0 +1,49 @@
+/* MODAL DE BÚSQUEDA (Aislado) */
+/* Evitar parpadeos usando Visibilidad + Opacidad + GPU */
+.ts-modal { 
+    position: fixed; inset: 0; z-index: 10000; 
+    display: flex; align-items: flex-start; justify-content: center; 
+    padding-top: 12vh; 
+    opacity: 0; visibility: hidden; 
+    transition: opacity 0.2s ease, visibility 0.2s ease; 
+    will-change: opacity, visibility;
+}
+.ts-modal.active { opacity: 1; visibility: visible; }
+
+.ts-backdrop { 
+    position: absolute; inset: 0; 
+    background: rgba(5, 6, 10, 0.75); 
+    backdrop-filter: blur(8px); 
+    transform: translateZ(0); /* Fuerza GPU */
+}
+
+.ts-container { 
+    position: relative; width: min(720px, 92vw); max-height: 70vh; 
+    background: linear-gradient(180deg, #1a1a24, #0d0d13); 
+    border: 1px solid rgba(212, 175, 55, 0.35); border-radius: 16px; 
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7); 
+    display: flex; flex-direction: column; overflow: hidden; 
+    opacity: 0; transform: translateY(-20px) scale(0.98); 
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; 
+    will-change: transform, opacity;
+}
+.ts-modal.active .ts-container { 
+    opacity: 1; transform: translateY(0) scale(1); 
+}
+.ts-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(212, 175, 55, 0.04); }
+.ts-icon { color: #d4af37; } .ts-input { flex: 1; background: transparent; border: none; color: #fff; font-size: 18px; outline: none; font-family: 'Inter', sans-serif; }
+.ts-input::placeholder { color: #6b7280; }
+.ts-version { background: #0d0d13; color: #fbbf24; border: 1px solid #30363d; border-radius: 6px; padding: 6px 10px; font-weight: 600; }
+.ts-close { background: none; border: none; color: #9ca3af; font-size: 26px; cursor: pointer; }
+.ts-close:hover { color: #fff; }
+.ts-results { flex: 1; overflow-y: auto; padding: 8px; min-height: 100px; }
+.ts-result { display: block; padding: 14px 16px; border-radius: 8px; cursor: pointer; color: #e5e7eb; border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.15s; }
+.ts-result:hover, .ts-result:focus { background: rgba(212, 175, 55, 0.1); outline: none; }
+.ts-result mark { background: rgba(251, 191, 36, 0.3); color: #fbbf24; padding: 0 3px; border-radius: 3px; font-weight: 700; }
+.ts-ref { color: #fbbf24; font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.ts-version-badge { color: #6b7280; font-weight: 500; font-size: 11px; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+.ts-text { font-size: 14px; line-height: 1.55; }
+.ts-empty, .ts-loading { text-align: center; padding: 40px 20px; color: #6b7280; font-style: italic; }
+.ts-loading { color: #fbbf24; font-style: normal; }
+.ts-footer { display: flex; gap: 20px; justify-content: center; padding: 10px 20px; font-size: 11.5px; color: #6b7280; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2); }
+.ts-footer kbd { background: rgba(255,255,255,0.08); color: #c9d1d9; padding: 2px 6px; border-radius: 4px; font-family: monospace; }

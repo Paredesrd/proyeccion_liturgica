@@ -385,3 +385,8 @@ export function clearBibleScreen() {
     sendCommand('set_text', { title: '', text: '', variant: 'biblia' }, 'all');
 }
 window.clearBibleScreen = clearBibleScreen;
+// Listener para el modal de búsqueda modular
+window.addEventListener('project_verse', (e) => {
+    enforceLiveScene('biblia');
+    sendCommand('show_bible_verse', e.detail, 'all');
+});
