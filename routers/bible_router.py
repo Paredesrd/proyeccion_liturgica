@@ -20,19 +20,14 @@ BIBLE_ALIASES = {
     "eclesiastes": ["ecl"], "cantares": ["can", "cnt"],
     "isaias": ["isa"], "jeremias": ["jer"], "lamentaciones": ["lam"], "ezequiel": ["eze"], "daniel": ["dan", "dnl"],
     "oseas": ["ose", "hozeas"], "joel": ["joe"], "amos": ["amo"], "abdias": ["abd"], "jonas": ["jon"],
-    "miqueas": ["miq"],
-    "nahum": ["nah"], "habacuc": ["hab"], "sofonias": ["sof"], "hageo": ["hag"], "zacarias": ["zac"],
-    "malaquias": ["mal"],
-    "mateo": ["mat"], "marcos": ["mar", "mrk"], "lucas": ["luc", "luk"], "juan": ["jn", "jhn", "jua"],
-    "hechos": ["hech", "hch", "act"],
-    "romanos": ["rom"], "1corintios": ["1cor", "1co"], "2corintios": ["2cor", "2co"],
+    "miqueas": ["miq"], "nahum": ["nah"], "habacuc": ["hab"], "sofonias": ["sof"], "hageo": ["hag"], "zacarias": ["zac"],
+    "malaquias": ["mal"], "mateo": ["mat"], "marcos": ["mar", "mrk"], "lucas": ["luc", "luk"], "juan": ["jn", "jhn", "jua"],
+    "hechos": ["hech", "hch", "act"], "romanos": ["rom"], "1corintios": ["1cor", "1co"], "2corintios": ["2cor", "2co"],
     "galatas": ["gal"], "efesios": ["efe", "eph"], "filipenses": ["fil", "php"], "colosenses": ["col"],
-    "1tesalonicenses": ["1tes", "1ts"], "2tesalonicenses": ["2tes", "2ts"],
-    "1timoteo": ["1tim", "1ti"], "2timoteo": ["2tim", "2ti"], "tito": ["tit"], "filemon": ["flm"],
-    "hebreos": ["heb", "ebreos"], "santiago": ["stg", "san", "jas"],
-    "1pedro": ["1pe", "1ped", "1pt"], "2pedro": ["2pe", "2ped", "2pt"],
-    "1juan": ["1jn", "1ju"], "2juan": ["2jn", "2ju"], "3juan": ["3jn", "3ju"], "judas": ["jud"],
-    "apocalipsis": ["apoc", "apo", "rev"]
+    "1tesalonicenses": ["1tes", "1ts"], "2tesalonicenses": ["2tes", "2ts"], "1timoteo": ["1tim", "1ti"], "2timoteo": ["2tim", "2ti"],
+    "tito": ["tit"], "filemon": ["flm"], "hebreos": ["heb", "ebreos"], "santiago": ["stg", "san", "jas"],
+    "1pedro": ["1pe", "1ped", "1pt"], "2pedro": ["2pe", "2ped", "2pt"], "1juan": ["1jn", "1ju"], "2juan": ["2jn", "2ju"],
+    "3juan": ["3jn", "3ju"], "judas": ["jud"], "apocalipsis": ["apoc", "apo", "rev"]
 }
 
 def normalize(text_val):
@@ -61,8 +56,8 @@ def get_versions(db: Session = Depends(get_bible_db)):
         result = db.execute(query).fetchall()
         return {"versiones": [row[0] for row in result]}
     except Exception as e:
-        log.error(f"Error al obtener versiones bíblicas: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error interno al consultar versiones")
+        log.error(f"Error al obtener versiones: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno.")
 
 @router.get("/api/bible/books")
 def get_books(version: str = "RVR1960", db: Session = Depends(get_bible_db)):
@@ -71,14 +66,53 @@ def get_books(version: str = "RVR1960", db: Session = Depends(get_bible_db)):
         result = db.execute(query, {"version": version}).fetchall()
         return {"libros": [row[0] for row in result]}
     except Exception as e:
-        log.error(f"Error al obtener libros bíblicos: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error interno al consultar libros")
+        log.error(f"Error al obtener libros: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno.")
 
 @router.get("/api/bible/search")
 def search_bible(libro: str, capitulo: str, version: str = "RVR1960", db: Session = Depends(get_bible_db)):
     std_book = get_standard_book(libro)
     if not std_book:
         raise HTTPException(status_code=404, detail=f"[ERROR_LIBRO] Libro '{libro}' no reconocido.")
+
+    query_books = text("SELECT DISTINCT libro FROM versiculos WHERE version = :version")
+    books_db = db.execute(query_books, {"version": version}).fetchall()
+    
+    exact_db_book = None
+    
+    # 1. Búsqueda exacta o por alias (Soporta "Flm" -> "Filemón")
+    for b in books_db:
+        norm_db = normalize(b[0])
+        
+        # Coincidencia exacta
+        if norm_db == std_book:
+            exact_db_book = b[0]
+            break
+            
+        # Coincidencia con los alias del libro (ej. "flm")
+        if norm_db in BIBLE_ALIASES.get(std_book, []):
+            exact_db_book = b[0]
+            break
+            
+        # Coincidencia con alias en sentido inverso (si la BD usa el nombre largo y el buscador el corto)
+        for std_name, aliases in BIBLE_ALIASES.items():
+            if std_name == std_book and norm_db in aliases:
+                exact_db_book = b[0]
+                break
+                
+        if exact_db_book:
+            break
+
+    # 2. Búsqueda flexible (empieza por...)
+    if not exact_db_book:
+        for b in books_db:
+            norm_db = normalize(b[0])
+            if std_book.startswith(norm_db) or norm_db.startswith(std_book):
+                exact_db_book = b[0]
+                break
+
+    if not exact_db_book:
+        raise HTTPException(status_code=404, detail=f"[ERROR_LIBRO] El libro '{libro}' no se encontró en la versión {version}.")
 
     chap_str = capitulo.strip()
     verse_str = None
@@ -94,17 +128,17 @@ def search_bible(libro: str, capitulo: str, version: str = "RVR1960", db: Sessio
 
     try:
         check_query = text("SELECT 1 FROM versiculos WHERE version = :version AND libro = :libro AND capitulo = :capitulo LIMIT 1")
-        exists = db.execute(check_query, {"version": version, "libro": std_book, "capitulo": chap_num}).fetchone()
+        exists = db.execute(check_query, {"version": version, "libro": exact_db_book, "capitulo": chap_num}).fetchone()
         if not exists:
-            raise HTTPException(status_code=404, detail=f"[ERROR_CAPÍTULO] El capítulo {chap_num} no existe en este libro.")
+            raise HTTPException(status_code=404, detail=f"[ERROR_CAPÍTULO] El capítulo {chap_num} no existe.")
 
         if not verse_str:
             data_query = text("SELECT versiculo, texto, nombre_libro_original FROM versiculos WHERE version = :version AND libro = :libro AND capitulo = :capitulo ORDER BY versiculo")
-            rows = db.execute(data_query, {"version": version, "libro": std_book, "capitulo": chap_num}).fetchall()
-
+            rows = db.execute(data_query, {"version": version, "libro": exact_db_book, "capitulo": chap_num}).fetchall()
             final_text = "\n".join([f"{r[0]}. {r[1]}" for r in rows])
             ref_name = rows[0][2]
             referencia = f"{ref_name} {chap_num}"
+            start_verse = 1
         else:
             req_verses = []
             if "-" in verse_str:
@@ -119,10 +153,10 @@ def search_bible(libro: str, capitulo: str, version: str = "RVR1960", db: Sessio
                     req_verses = [int(nums[0])]
 
             if not req_verses:
-                raise HTTPException(status_code=400, detail="[ERROR_SINTAXIS] Formato de versículo inválido.")
+                raise HTTPException(status_code=400, detail="[ERROR_SINTAXIS] Formato inválido.")
 
             placeholders = ','.join(f':v{i}' for i in range(len(req_verses)))
-            params = {"version": version, "libro": std_book, "capitulo": chap_num}
+            params = {"version": version, "libro": exact_db_book, "capitulo": chap_num}
             for i, v in enumerate(req_verses):
                 params[f"v{i}"] = v
 
@@ -130,19 +164,97 @@ def search_bible(libro: str, capitulo: str, version: str = "RVR1960", db: Sessio
             rows = db.execute(data_query, params).fetchall()
 
             if not rows:
-                raise HTTPException(status_code=404, detail=f"[ERROR_VERSÍCULO] Versículo(s) {verse_str} no encontrado(s).")
+                raise HTTPException(status_code=404, detail=f"[ERROR_VERSÍCULO] No encontrado.")
 
             final_text = "\n".join([f"{r[0]}. {r[1]}" for r in rows])
             ref_name = rows[0][2]
-            referencia = f"{ref_name} {chap_num}"
+            referencia = f"{ref_name} {chap_num}:{req_verses[0]}"
+            start_verse = req_verses[0]
 
         return {
             "referencia": referencia,
             "version": version,
-            "texto": final_text
+            "texto": final_text,
+            "libro_db": exact_db_book,
+            "capitulo": chap_num,
+            "versiculo_inicio": start_verse
         }
     except HTTPException as he:
         raise he
     except Exception as e:
-        log.error(f"Error crítico en búsqueda bíblica: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error interno al procesar búsqueda bíblica")
+        log.error(f"Error crítico: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno.")
+
+@router.get("/api/bible/navigate")
+def navigate_bible(libro: str, capitulo: int, versiculo: int, direction: str, version: str = "RVR1960", db: Session = Depends(get_bible_db)):
+    query_books = text("SELECT DISTINCT libro FROM versiculos WHERE version = :version")
+    books_db = db.execute(query_books, {"version": version}).fetchall()
+    exact_db_book = None
+    
+    # 1. Coincidencia exacta (lo que envía el frontend)
+    for b in books_db:
+        if b[0] == libro:
+            exact_db_book = b[0]
+            break
+            
+    # 2. Si falla, intentar con normalización (tolerante a nombres irregulares)
+    if not exact_db_book:
+        std_book = get_standard_book(libro)
+        if std_book:
+            for b in books_db:
+                if normalize(b[0]) == std_book:
+                    exact_db_book = b[0]
+                    break
+            if not exact_db_book:
+                for b in books_db:
+                    if std_book.startswith(normalize(b[0])) or normalize(b[0]).startswith(std_book):
+                        exact_db_book = b[0]
+                        break
+
+    if not exact_db_book:
+        raise HTTPException(status_code=404, detail="Libro no encontrado")
+
+    # 3. MAGIA SQL: Buscar el siguiente o anterior versículo REAL
+    if direction == "next":
+        next_row = db.execute(text("""
+            SELECT capitulo, versiculo FROM versiculos 
+            WHERE version=:v AND libro=:l 
+            AND (capitulo > :c OR (capitulo = :c AND versiculo > :ver))
+            AND texto IS NOT NULL AND TRIM(texto) != ''
+            ORDER BY capitulo ASC, versiculo ASC LIMIT 1
+        """), {"v": version, "l": exact_db_book, "c": capitulo, "ver": versiculo}).fetchone()
+    elif direction == "prev":
+        next_row = db.execute(text("""
+            SELECT capitulo, versiculo FROM versiculos 
+            WHERE version=:v AND libro=:l 
+            AND (capitulo < :c OR (capitulo = :c AND versiculo < :ver))
+            AND texto IS NOT NULL AND TRIM(texto) != ''
+            ORDER BY capitulo DESC, versiculo DESC LIMIT 1
+        """), {"v": version, "l": exact_db_book, "c": capitulo, "ver": versiculo}).fetchone()
+    else:
+        raise HTTPException(status_code=400, detail="Dirección inválida")
+
+    # Si no hay siguiente (fin del libro), devolvemos el actual
+    if not next_row:
+        next_cap, next_vers = capitulo, versiculo
+    else:
+        next_cap, next_vers = next_row[0], next_row[1]
+
+    # Obtener el texto del nuevo versículo
+    data_query = text("SELECT texto, nombre_libro_original FROM versiculos WHERE version=:v AND libro=:l AND capitulo=:c AND versiculo=:ver")
+    row = db.execute(data_query, {"v": version, "l": exact_db_book, "c": next_cap, "ver": next_vers}).fetchone()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="Versículo no encontrado")
+        
+    return {
+        "libro_original": row[1],
+        "libro_db": exact_db_book,
+        "capitulo": next_cap,
+        "versiculo": next_vers,
+        "texto": row[0],
+        "version": version,
+        "referencia": f"{row[1]} {next_cap}:{next_vers}"
+    }
+
+    

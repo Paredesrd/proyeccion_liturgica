@@ -4,15 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Control Litúrgico</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/control.css?v=5">
+    <link href="/static/vendor/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/control.css?v=100">
 </head>
 <body class="vh-100 d-flex flex-column overflow-hidden bg-body-tertiary">
     <nav class="navbar navbar-dark bg-dark border-bottom border-secondary px-3 flex-shrink-0">
         <span class="navbar-brand mb-0 h1 fw-bold">
             <span class="me-2">🎛️</span>Control de Proyección
         </span>
-        <span id="connection-status" class="badge bg-danger p-2 fs-6">Desconectado</span>
+        <div class="d-flex align-items-center gap-3">
+            <!-- BOTÓN DE ACCESO AL ADMINISTRADOR -->
+            <a href="/admin" target="_blank" class="btn btn-sm btn-dark text-info fw-bold px-3 py-2 shadow-sm border border-secondary rounded text-decoration-none" title="Abrir Administrador en nueva pestaña">
+                ⚙️ Admin
+            </a>
+            <div class="btn-group shadow-sm border border-secondary rounded">
+                <button class="btn btn-sm btn-dark text-danger fw-bold px-3 py-2" onclick="sendCommand('blackout', {}, 'all')" title="Corte a Negro (Emergencia)">
+                    🔴 Negro
+                </button>
+                <button class="btn btn-sm btn-dark text-warning fw-bold px-3 py-2" onclick="sendCommand('clear', {}, 'all')" title="Limpiar Textos">
+                    🧹 Limpiar
+                </button>
+            </div>
+            <span id="connection-status" class="badge bg-danger p-2 fs-6">🟢 En Línea</span>
+        </div>
     </nav>
 
     <div class="container-fluid flex-grow-1 overflow-hidden p-3">
@@ -92,14 +106,7 @@
                     </div>
                 </div>
 
-                <div class="d-flex gap-3 flex-shrink-0">
-                    <button class="btn btn-danger flex-grow-1 py-3 fw-bold fs-5 shadow-sm" onclick="sendCommand('blackout', {}, 'all'); const audio = document.getElementById('local-audio-engine'); if(audio) audio.pause();">
-                        🔴 Corte a Negro (Emergencia)
-                    </button>
-                    <button class="btn btn-warning flex-grow-1 py-3 fw-bold fs-5 shadow-sm" onclick="sendCommand('clear', {}, 'all'); const audio = document.getElementById('local-audio-engine'); if(audio) audio.pause();">
-                        🧹 Limpiar Pantalla
-                    </button>
-                </div>
+
             </div>
         </div>
     </div>
@@ -107,7 +114,7 @@
     <!-- MOTOR NATIVO DE REPRODUCCIÓN LOCAL DE AUDIO -->
     <audio id="local-audio-engine" loop style="display: none;"></audio>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/vendor/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="/static/js/control.js?v=15"></script>
 
     <script>
@@ -127,6 +134,222 @@
                 resizeObserver.observe(wrapper);
             }
         });
+    </script>
+
+    <!-- ============================================================ -->
+    <!-- ACCESO REMOTO: Botón flotante + Modal (100% autocontenido)   -->
+    <!-- ============================================================ -->
+    <button id="btnAccesoRemoto" title="Acceso remoto desde otros dispositivos" aria-label="Acceso remoto">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+            <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+            <line x1="12" y1="20" x2="12.01" y2="20"/>
+        </svg>
+    </button>
+
+    <div id="modalAccesoRemoto" class="ar-overlay" hidden>
+        <div class="ar-card">
+            <div class="ar-header">
+                <div>
+                    <h3>📡 Acceso Remoto</h3>
+                    <span id="arIp">Detectando red…</span>
+                </div>
+                <button id="arCerrar" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="ar-body" id="arBody"></div>
+            <div class="ar-footer">
+                Copie el enlace y ábralo en el navegador del dispositivo.
+                El dispositivo debe estar conectado a la misma red local.
+            </div>
+        </div>
+    </div>
+
+    <style>
+        #btnAccesoRemoto{
+            position:fixed; right:22px; bottom:22px; z-index:9990;
+            width:54px; height:54px; border-radius:50%;
+            border:1px solid rgba(212,175,55,.45);
+            background:radial-gradient(circle at 30% 30%, #2a2a3a, #14141d);
+            color:#d4af37; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            box-shadow:0 6px 18px rgba(0,0,0,.45);
+        }
+        #btnAccesoRemoto:hover{ border-color:rgba(212,175,55,.9); }
+        #btnAccesoRemoto svg{ width:24px; height:24px; }
+
+        .ar-overlay{
+            position:fixed; inset:0; z-index:9995;
+            background:rgba(5,6,10,.6);
+            display:flex; align-items:center; justify-content:center;
+        }
+        .ar-overlay[hidden]{ display:none; }
+
+        .ar-card{
+            width:min(480px, 92vw);
+            background:linear-gradient(180deg, #191922, #101017);
+            border:1px solid rgba(212,175,55,.35);
+            border-radius:16px;
+            box-shadow:0 24px 60px rgba(0,0,0,.6);
+            color:#e8e6df;
+            font-family:'Segoe UI', system-ui, sans-serif;
+            overflow:hidden;
+        }
+
+        .ar-header{
+            display:flex; justify-content:space-between; align-items:center;
+            padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.08);
+            background:rgba(212,175,55,.08);
+        }
+        .ar-header h3{ margin:0; font-size:16px; letter-spacing:.4px; color:#d4af37; }
+        .ar-header span{ font-size:12px; color:#9a97a3; }
+        #arCerrar{
+            background:none; border:none; color:#9a97a3; font-size:22px;
+            cursor:pointer; line-height:1; padding:4px 8px; border-radius:8px;
+        }
+        #arCerrar:hover{ color:#fff; background:rgba(255,255,255,.08); }
+
+        .ar-body{ padding:14px 20px; display:flex; flex-direction:column; gap:10px; }
+        .ar-row{
+            display:flex; align-items:center; gap:12px;
+            background:rgba(255,255,255,.04);
+            border:1px solid rgba(255,255,255,.07);
+            border-radius:12px; padding:10px 12px;
+        }
+        .ar-icon{ font-size:20px; }
+        .ar-info{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+        .ar-info strong{ font-size:13px; color:#e8e6df; }
+        .ar-info code{
+            font-size:12px; color:#8fd3ff;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+            font-family:Consolas, monospace;
+        }
+        .ar-copy{
+            border-radius:8px; padding:7px 12px; font-size:12px; cursor:pointer;
+            background:rgba(212,175,55,.15); color:#d4af37;
+            border:1px solid rgba(212,175,55,.4);
+            white-space:nowrap;
+        }
+        .ar-copy:hover{ background:rgba(212,175,55,.28); }
+        .ar-copy.copied{
+            background:rgba(46,160,67,.2); color:#3fb950;
+            border-color:rgba(63,185,80,.5);
+        }
+        .ar-copy.fail{
+            background:rgba(248,81,73,.2); color:#f85149;
+            border-color:rgba(248,81,73,.5);
+        }
+        .ar-loading{ color:#9a97a3; font-size:13px; text-align:center; padding:12px 0; }
+        .ar-footer{
+            padding:12px 20px; font-size:11.5px; color:#8a8794;
+            border-top:1px solid rgba(255,255,255,.08);
+        }
+    </style>
+
+    <script>
+    (function(){
+        const btn      = document.getElementById('btnAccesoRemoto');
+        const overlay  = document.getElementById('modalAccesoRemoto');
+        const closeBtn = document.getElementById('arCerrar');
+        const body     = document.getElementById('arBody');
+        const ipLabel  = document.getElementById('arIp');
+
+        let openedAt = 0;
+
+        const ITEMS = [
+            { key:'control',   label:'Panel de Control', icon:'🎛️' },
+            { key:'projector', label:'Proyector',        icon:'🖥️' },
+            { key:'admin',     label:'Administración',   icon:'🛠️' },
+            { key:'stage',     label:'Monitor de Escenario (Tablet)', icon:'🎤' }
+        ];
+
+        // COPIA SÍNCRONA GARANTIZADA: funciona en Qt WebEngine, Chrome, móviles y HTTP local.
+        function copiarTexto(texto, btnEl){
+            function feedback(ok){
+                btnEl.textContent = ok ? '✓ Copiado' : '❌ Reintentar';
+                btnEl.classList.remove('copied', 'fail');
+                btnEl.classList.add(ok ? 'copied' : 'fail');
+                setTimeout(function(){
+                    btnEl.textContent = 'Copiar';
+                    btnEl.classList.remove('copied', 'fail');
+                }, 1600);
+            }
+
+            let ok = false;
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = texto;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.top = '-1000px';
+                ta.style.left = '0';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                ta.setSelectionRange(0, texto.length);
+                ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+            } catch (e) {
+                ok = false;
+            }
+
+            if (!ok && navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(texto)
+                    .then(function(){ feedback(true); })
+                    .catch(function(){ feedback(false); });
+                return;
+            }
+            feedback(ok);
+        }
+
+        function abrir(){
+            overlay.hidden = false;
+            openedAt = Date.now();
+            ipLabel.textContent = 'Detectando red…';
+            body.innerHTML = '<div class="ar-loading">Consultando red local…</div>';
+            fetch('/api/system/access')
+                .then(function(res){ return res.json(); })
+                .then(function(data){
+                    ipLabel.textContent = 'IP del servidor: ' + data.local_ip + ' · Puerto ' + data.port;
+                    body.innerHTML = '';
+                    ITEMS.forEach(function(item){
+                        const url = data.urls[item.key];
+                        const row = document.createElement('div');
+                        row.className = 'ar-row';
+                        row.innerHTML =
+                            '<span class="ar-icon">' + item.icon + '</span>' +
+                            '<div class="ar-info"><strong>' + item.label + '</strong>' +
+                            '<code>' + url + '</code></div>' +
+                            '<button class="ar-copy">Copiar</button>';
+                        row.querySelector('.ar-copy').addEventListener('click', function(e){
+                            copiarTexto(url, e.currentTarget);
+                        });
+                        body.appendChild(row);
+                    });
+                })
+                .catch(function(){
+                    ipLabel.textContent = 'Sin conexión con el servidor';
+                    body.innerHTML = '<div class="ar-loading">No se pudo consultar la red.</div>';
+                });
+        }
+
+        function cerrar(){
+            // BLINDAJE ANTI-PARPADEO: ignora cualquier cierre en los primeros 400 ms
+            if (Date.now() - openedAt < 400) return;
+            overlay.hidden = true;
+        }
+
+        btn.addEventListener('click', function(e){
+            e.stopPropagation();
+            if (overlay.hidden) { abrir(); } else { cerrar(); }
+        });
+        closeBtn.addEventListener('click', cerrar);
+        overlay.addEventListener('click', function(e){ if (e.target === overlay) cerrar(); });
+        document.addEventListener('keydown', function(e){
+            if (e.key === 'Escape' && !overlay.hidden) cerrar();
+        });
+    })();
     </script>
 </body>
 </html>

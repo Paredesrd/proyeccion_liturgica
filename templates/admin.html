@@ -4,17 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administración Litúrgica</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/admin.css?v=3">
+    <link href="/static/vendor/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/admin.css?v=10">
 </head>
-<body class="bg-body-tertiary pb-5">
+<body class="pb-5">
 
-    <nav class="navbar navbar-dark bg-dark border-bottom border-secondary mb-4 shadow-sm sticky-top">
+    <nav class="navbar navbar-dark mb-4 sticky-top">
         <div class="container-fluid px-4">
             <span class="navbar-brand mb-0 h4 fw-bold">
                 <span class="me-2">🛠️</span>Panel de Administración
             </span>
-            <a href="/" class="btn btn-outline-info fw-bold">Volver al Control</a>
+            <div class="d-flex gap-2 align-items-center">
+                <label class="btn btn-success fw-bold mb-0" style="cursor:pointer;" title="Importar archivo (Detección automática)">
+                    📥 Importar Archivo <input type="file" id="global-file-input" accept=".json" style="display:none;" onchange="importarArchivoGlobal(this)">
+                </label>
+                <a href="/" class="btn btn-outline-light fw-bold ms-2">Volver al Control</a>
+            </div>
         </div>
     </nav>
 
@@ -44,20 +49,20 @@
 
             <!-- PESTAÑA: FONDOS -->
             <div class="tab-pane fade show active" id="fondos-pane" role="tabpanel" tabindex="0">
-                <div class="card bg-dark border-secondary shadow-sm mb-4">
+                <div class="card  shadow-sm mb-4">
                     <div class="card-header border-secondary py-3">
                         <h5 class="mb-0 fw-bold text-info">Subir Nuevo Fondo Multimedia</h5>
                     </div>
                     <div class="card-body">
                         <form id="form-fondos" class="d-flex flex-column gap-3 max-w-500 mx-auto py-2">
-                            <input type="file" class="form-control border-secondary bg-black text-white p-3" id="input-bg-file" accept=".jpg,.jpeg,.png,.webp,.mp4,.webm" required>
+                            <input type="file" class="form-control border-secondary  p-3" id="input-bg-file" accept=".jpg,.jpeg,.png,.webp,.mp4,.webm" required>
                             <button type="submit" class="btn btn-primary fw-bold py-3" id="btn-upload-bg">Subir Fondo a Base de Datos</button>
                             <div id="upload-status" class="mt-2 text-center fw-bold small"></div>
                         </form>
                     </div>
                 </div>
 
-                <div class="card bg-dark border-secondary shadow-sm">
+                <div class="card  shadow-sm">
                     <div class="card-header border-secondary py-3">
                         <h5 class="mb-0 fw-bold text-info">Catálogo de Fondos Activos</h5>
                     </div>
@@ -72,17 +77,17 @@
 
             <!-- PESTAÑA: CUMPLEAÑOS -->
             <div class="tab-pane fade" id="cumpleanos-pane" role="tabpanel" tabindex="0">
-                <div class="card bg-dark border-secondary shadow-sm">
+                <div class="card  shadow-sm">
                     <div class="card-header border-secondary py-3">
                         <h5 class="mb-0 fw-bold text-warning">Gestión de Cumpleaños</h5>
                     </div>
                     <div class="card-body">
                         <form id="form-cumpleanos" class="row g-2 mb-4">
                             <div class="col-md-5">
-                                <input type="text" class="form-control border-secondary bg-black text-white" id="input-nombre" placeholder="Nombre completo" required>
+                                <input type="text" class="form-control border-secondary " id="input-nombre" placeholder="Nombre completo" required>
                             </div>
                             <div class="col-md-4">
-                                <input type="date" class="form-control border-secondary bg-black text-white text-uppercase" id="input-fecha" required>
+                                <input type="date" class="form-control border-secondary  text-uppercase" id="input-fecha" required>
                             </div>
                             <div class="col-md-3">
                                 <button type="submit" class="btn btn-warning w-100 fw-bold">Agregar Registro</button>
@@ -106,17 +111,23 @@
 
             <!-- PESTAÑA: ANUNCIOS -->
             <div class="tab-pane fade" id="anuncios-pane" role="tabpanel" tabindex="0">
-                <div class="card bg-dark border-secondary shadow-sm">
+                <div class="card  shadow-sm">
                     <div class="card-header border-secondary py-3">
                         <h5 class="mb-0 fw-bold text-danger">Gestión de Anuncios</h5>
                     </div>
                     <div class="card-body">
                         <form id="form-anuncios" class="row g-3 mb-4">
                             <div class="col-md-4">
-                                <input type="text" class="form-control border-secondary bg-black text-white fw-bold" id="input-titulo-anuncio" placeholder="Título (Ej. Estudio Bíblico)" required>
+                                <input type="text" class="form-control border-secondary  fw-bold" id="input-titulo-anuncio" placeholder="Título (Ej. Estudio Bíblico)" required>
                             </div>
-                            <div class="col-md-6">
-                                <input type="text" class="form-control border-secondary bg-black text-white" id="input-contenido-anuncio" placeholder="Contenido (Ej. Miércoles 6:30 PM)" required>
+                            <div class="col-md-4">
+                                <input type="text" class="form-control border-secondary " id="input-contenido-anuncio" placeholder="Contenido" required>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-center justify-content-center">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="input-activo-anuncio" checked>
+                                    <label class="form-check-label text-white small" for="input-activo-anuncio">Activo</label>
+                                </div>
                             </div>
                             <div class="col-md-2">
                                 <button type="submit" class="btn btn-danger w-100 fw-bold">Agregar</button>
@@ -141,7 +152,7 @@
 
             <!-- PESTAÑA: MÚSICA Y SETLIST -->
             <div class="tab-pane fade" id="musica-pane" role="tabpanel" tabindex="0">
-                <div class="card bg-dark border-secondary shadow-sm">
+                <div class="card  shadow-sm">
                     <div class="card-header border-secondary py-3">
                         <h5 class="mb-0 fw-bold text-success">Gestión de Cancionero y Setlist del Día</h5>
                     </div>
@@ -149,13 +160,13 @@
                         <form id="form-canciones" class="mb-4">
                             <div class="row g-3 mb-3">
                                 <div class="col-md-10">
-                                    <input type="text" class="form-control border-secondary bg-black text-white fw-bold fs-5" id="input-titulo-cancion" placeholder="Título de la Nueva Canción" required>
+                                    <input type="text" class="form-control border-secondary  fw-bold fs-5" id="input-titulo-cancion" placeholder="Título de la Nueva Canción" required>
                                 </div>
                                 <div class="col-md-2">
                                     <button type="submit" class="btn btn-success w-100 h-100 fw-bold">💾 Guardar</button>
                                 </div>
                             </div>
-                            <textarea class="form-control border-secondary bg-black text-white font-monospace" id="input-letra-cancion" placeholder="Pegue aquí la letra completa de la canción..." rows="4" required></textarea>
+                            <textarea class="form-control border-secondary  font-monospace" id="input-letra-cancion" placeholder="Pegue aquí la letra completa de la canción..." rows="4" required></textarea>
                         </form>
 
                         <div class="row g-4">
@@ -190,7 +201,10 @@
                                             <tbody></tbody>
                                         </table>
                                     </div>
-                                    <button class="btn btn-success w-100 fw-bold py-2 fs-6 shadow-sm" onclick="guardarSetlistEnServidor()">✅ Publicar Setlist en Control</button>
+                                    <div class="d-flex gap-2 mt-2">
+                                        <button class="btn btn-success flex-grow-1 fw-bold py-2 fs-6 shadow-sm" onclick="guardarSetlistEnServidor()">✅ Publicar Setlist</button>
+                                        <button class="btn btn-outline-info fw-bold py-2 px-3 shadow-sm" onclick="exportarSetlist()" title="Descargar este Setlist para enviarlo">📥 Exportar</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -208,11 +222,11 @@
                         <form id="form-bosquejo" class="mb-4">
                             <div class="row g-3">
                                 <div class="col-lg-4">
-                                    <input type="text" class="form-control border-secondary bg-black text-white fw-bold mb-2" id="input-titulo-slide" placeholder="Título (Ej. 1. La Gracia)" required>
+                                    <input type="text" class="form-control border-secondary  fw-bold mb-2" id="input-titulo-slide" placeholder="Título (Ej. 1. La Gracia)" required>
                                     <button type="submit" class="btn btn-primary w-100 fw-bold py-2">➕ Añadir Diapositiva</button>
                                 </div>
                                 <div class="col-lg-8">
-                                    <textarea class="form-control border-secondary bg-black text-white font-monospace h-100" id="input-contenido-slide" placeholder="Puntos a proyectar (use guiones para viñetas)..." rows="3" required></textarea>
+                                    <textarea class="form-control border-secondary  font-monospace h-100" id="input-contenido-slide" placeholder="Puntos a proyectar (use guiones para viñetas)..." rows="3" required></textarea>
                                 </div>
                             </div>
                         </form>
@@ -232,7 +246,10 @@
                                 </table>
                             </div>
                         </div>
-                        <button class="btn btn-primary w-100 fw-bold py-3 fs-5 shadow-sm" onclick="guardarBosquejoEnServidor()">📤 Publicar Bosquejo en Control</button>
+                        <div class="d-flex gap-2 mt-2">
+                            <button class="btn btn-primary flex-grow-1 fw-bold py-3 fs-5 shadow-sm" onclick="guardarBosquejoEnServidor()">📤 Publicar Bosquejo en Control</button>
+                            <button class="btn btn-outline-info fw-bold py-3 px-4 shadow-sm" onclick="exportarPredica()" title="Descargar este bosquejo para enviarlo">📥 Exportar Prédica</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -240,7 +257,7 @@
         </div>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script type="module" src="/static/js/admin.js?v=16"></script>
+    <script src="/static/vendor/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="/static/js/admin.js?v=18"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import socket
 
 from core.config import settings
 from core.logger import log
@@ -36,10 +37,44 @@ app.include_router(projection_router.router)
 app.include_router(media_router.router)
 app.include_router(bible_router.router)
 
+
 @app.on_event("startup")
 async def startup_event():
     log.info("Iniciando motor del servidor y componentes de persistencia...")
     init_db()
+
+
+def get_local_ip() -> str:
+    """Obtiene la IP local de forma pasiva y sin requerir Internet."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+@app.get("/api/system/access")
+def api_system_access():
+    """
+    Entrega las URLs activas del sistema con la IP real detectada,
+    para el modal de Acceso Remoto del Panel de Control.
+    """
+    ip = get_local_ip()
+    base = f"http://{ip}:{settings.PORT}"
+    return {
+        "local_ip": ip,
+        "port": settings.PORT,
+        "urls": {
+            "control": f"{base}/",
+            "projector": f"{base}/projector",
+            "admin": f"{base}/admin",
+            "stage": f"{base}/stage",
+        },
+    }
+
 
 @app.get("/", response_class=HTMLResponse)
 async def get_control_panel(request: Request):
@@ -47,6 +82,11 @@ async def get_control_panel(request: Request):
         request=request,
         name="control.html"
     )
+
+
+@app.get("/stage", response_class=HTMLResponse)
+async def get_stage_view(request: Request):
+    return templates.TemplateResponse(request=request, name="stage.html")
 
 @app.get("/projector", response_class=HTMLResponse)
 async def get_projector_view(request: Request):

@@ -91,7 +91,7 @@ async function initAdminPanel() {
             const contenido = document.getElementById('input-contenido-anuncio').value;
 
             const activoCheck = document.getElementById('input-activo-anuncio');
-            const activo = activoCheck ? activoCheck.checked : false;
+            const activo = activoCheck ? activoCheck.checked : true;
 
             try {
                 const response = await fetch('/api/admin/anuncios', {
@@ -166,11 +166,11 @@ function renderizarGaleriaFondos(fondos) {
 
         return `
         <div class="col-sm-6 col-md-4 col-lg-3">
-            <div class="card bg-black border-secondary h-100 shadow-sm">
+            <div class="card h-100">
                 ${previewHtml}
-                <div class="card-body p-2 d-flex flex-column justify-content-between">
-                    <p class="text-white small text-truncate mb-2 fw-bold" title="${fondo.filename}">${fondo.filename}</p>
-                    <button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="eliminarFondo('${fondo.raw_filename}')">🗑️ Eliminar</button>
+                <div class="card-body p-3 d-flex flex-column justify-content-between">
+                    <p class="text-white small text-truncate mb-3 fw-bold" title="${fondo.filename}">${fondo.filename}</p>
+                    <button class="btn btn-sm btn-outline-danger w-100" onclick="eliminarFondo('${fondo.raw_filename}')">🗑️ Eliminar</button>
                 </div>
             </div>
         </div>
@@ -253,9 +253,11 @@ function renderizarTablasMusica() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><strong>${item.titulo}</strong></td>
-            <td style="display: flex; gap: 5px;">
-                <button class="btn-primary" style="padding: 0.3rem 0.6rem; background: #10b981;" onclick="agregarASetlist(${item.id})">Añadir ➡️</button>
-                <button class="btn-danger" style="padding: 0.3rem 0.6rem;" onclick="eliminarCancion(${item.id})">Borrar</button>
+            <td class="text-end">
+                <div class="d-flex gap-2 justify-content-end">
+                    <button class="btn btn-sm btn-outline-success" onclick="agregarASetlist(${item.id})">➕ Añadir</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarCancion(${item.id})">🗑️</button>
+                </div>
             </td>
         `;
         tbodyCat.appendChild(tr);
@@ -267,7 +269,7 @@ function renderizarTablasMusica() {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>🎶 <strong>${song.titulo}</strong></td>
-                <td><button class="btn-danger" style="padding: 0.3rem 0.6rem;" onclick="quitarDeSetlist(${song.id})">❌</button></td>
+                <td class="text-center"><button class="btn btn-sm btn-outline-danger" onclick="quitarDeSetlist(${song.id})">❌</button></td>
             `;
             tbodySet.appendChild(tr);
         }
@@ -340,8 +342,9 @@ function renderizarTablaCumpleanos(data) {
             badge = ' <span style="color: #f59e0b; font-weight: bold; font-size: 0.8em; margin-left: 8px;">[MAÑANA]</span>';
         }
 
-        tr.innerHTML = `<td>${item.nombre}${badge}</td><td>${item.fecha}</td>
-            <td><button class="btn-danger" onclick="eliminarCumpleanos(${item.id})">Eliminar</button></td>`;
+        tr.innerHTML = `<td><strong>${item.nombre}</strong>${badge}</td>
+            <td class="text-muted">${item.fecha}</td>
+            <td class="text-end"><button class="btn btn-sm btn-outline-danger" onclick="eliminarCumpleanos(${item.id})">🗑️ Eliminar</button></td>`;
         tbody.appendChild(tr);
     });
 }
@@ -374,10 +377,14 @@ function renderizarTablaAnuncios(data) {
         const estado = item.activo ? '🟢 Activo' : '🔴 Inactivo';
         const toggleBtn = item.activo ? 'Desactivar' : 'Activar';
         tr.innerHTML = `
-            <td><strong>${item.titulo}</strong></td><td>${item.contenido}</td><td>${estado}</td>
-            <td style="display: flex; gap: 10px;">
-                <button class="btn-primary" style="padding: 0.5rem 1rem;" onclick="cambiarEstadoAnuncio(${item.id}, ${!item.activo})">${toggleBtn}</button>
-                <button class="btn-danger" onclick="eliminarAnuncio(${item.id})">Eliminar</button>
+            <td><strong>${item.titulo}</strong></td>
+            <td class="text-muted">${item.contenido}</td>
+            <td><span class="badge ${item.activo ? 'bg-success' : 'bg-secondary'}">${estado}</span></td>
+            <td class="text-end">
+                <div class="d-flex gap-2 justify-content-end">
+                    <button class="btn btn-sm btn-outline-info" onclick="cambiarEstadoAnuncio(${item.id}, ${!item.activo})">${toggleBtn}</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarAnuncio(${item.id})">🗑️</button>
+                </div>
             </td>`;
         tbody.appendChild(tr);
     });
@@ -400,3 +407,84 @@ async function eliminarAnuncio(id) {
     });
     cargarAnuncios();
 }
+/* ==================== SINCRONIZACIÓN GLOBAL (EXPORTAR / IMPORTAR) ==================== */
+
+window.exportarPredica = async function() {
+    try {
+        const bosquejo = await API.predica.getBosquejo();
+        const payload = {
+            "firma_sistema": "proyeccion_liturgica_predica",
+            "fecha": new Date().toISOString(),
+            "diapositivas": bosquejo.diapositivas || []
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Predica_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (e) { alert("Error al exportar prédica: " + e.message); }
+};
+
+window.exportarSetlist = async function() {
+    try {
+        const setlist = await API.canciones.getSetlist();
+        const payload = {
+            "firma_sistema": "proyeccion_liturgica_setlist",
+            "fecha": new Date().toISOString(),
+            "canciones_ids": setlist.canciones_ids || []
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Setlist_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (e) { alert("Error al exportar setlist: " + e.message); }
+};
+
+
+window.importarArchivoGlobal = function(inputElement) {
+    const file = inputElement.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const json = JSON.parse(e.target.result);
+            
+            // EL CEREBRO: Detección automática por Firma
+            if (json.firma_sistema === "proyeccion_liturgica_backup_maestro") {
+                if (confirm("📦 Se ha detectado un Respaldo Maestro. ¿Desea sobrescribir la Prédica y el Setlist actuales?")) {
+                    await API.predica.saveBosquejo(json.predica);
+                    await API.canciones.saveSetlist(json.setlist);
+                    alert("✅ Respaldo Maestro importado con éxito. Recargando...");
+                    window.location.reload();
+                }
+            } 
+            else if (json.firma_sistema === "proyeccion_liturgica_predica" || json.diapositivas) {
+                if (confirm("📖 Se ha detectado un archivo de PRÉDICA. ¿Desea sobrescribir el bosquejo actual?")) {
+                    await API.predica.saveBosquejo(json.diapositivas || json);
+                    alert("✅ Prédica importada correctamente.");
+                    window.location.reload();
+                }
+            } 
+            else if (json.firma_sistema === "proyeccion_liturgica_setlist" || json.canciones_ids) {
+                if (confirm("🎵 Se ha detectado un archivo de SETLIST. ¿Desea sobrescribir la lista de canciones actual?")) {
+                    await API.canciones.saveSetlist(json.canciones_ids || json);
+                    alert("✅ Setlist importado correctamente.");
+                    window.location.reload();
+                }
+            } 
+            else {
+                alert("❌ ERROR: El archivo no pertenece a este sistema o está corrupto.");
+            }
+        } catch (err) {
+            alert("❌ Error al leer el archivo. Asegúrese de que sea un JSON válido.");
+        }
+    };
+    reader.readAsText(file);
+    inputElement.value = ''; // Limpiar para permitir re-subidas
+};

@@ -1,17 +1,43 @@
-# Bases de datos de producción
-*.db
-*.sqlite3
+# Entorno Virtual
+.venv/
+venv/
+env/
 
-# Compilados de caché de Python
+# Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
 
-# Archivos multimedia dinámicos
+# Bases de Datos (Muy importante para no subir 40MB)
+*.db
+*.db.bak
+*.sqlite
+
+# Logs y respaldos
+*.log
+backups/
+
+# Archivos multimedia pesados (Audio, Video)
 static/media/audio/*
 static/media/backgrounds/*
+!static/media/audio/.gitkeep
+!static/media/backgrounds/.gitkeep
 
-# Entornos virtuales y configuraciones
-.venv/
+# Configuración del IDE
 .idea/
 .vscode/
-.env
+*.spec
+
+# Datos temporales
+static/data/*.json
+
+# Archivos .bak de respaldo
+*.bak
+
+# Carpeta completa de multimedia (audios y videos pesados)
+static/media/

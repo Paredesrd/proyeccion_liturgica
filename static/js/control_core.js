@@ -275,8 +275,21 @@ export function projectSlide(index) {
     const slide = predicaSlides[index];
     if (!slide) return;
     lastActiveSlide = slide;
+    
+    // Lógica para el Monitor de Escenario (Siguiente diapositiva)
+    const nextSlide = predicaSlides[index + 1];
+    const nextTitle = nextSlide ? nextSlide.titulo : "Fin de la prédica";
+    const nextText = nextSlide ? nextSlide.contenido : "No hay más diapositivas";
+
     enforceLiveScene('predica');
-    sendCommand('set_text', { title: slide.titulo, text: slide.contenido, variant: 'predica' }, 'all');
+    sendCommand('set_text', { 
+        id: slide.id,
+        title: slide.titulo, 
+        text: slide.contenido, 
+        variant: 'predica',
+        next_title: nextTitle,
+        next_text: nextText
+    }, 'all');
 }
 
 export function clearPredicaScreen() {
@@ -344,7 +357,6 @@ export async function uiProjectBible() {
     if (!bookRaw || !chapter) { alert("⚠️ Por favor ingrese el libro y el capítulo."); return; }
 
     const bookClean = bookRaw.replace(/^(S\.|San|Santo)\s+/i, '').trim();
-
     let queryParam = chapter;
     if (verse) queryParam = `${chapter}:${verse}`;
 
@@ -355,7 +367,14 @@ export async function uiProjectBible() {
             return;
         }
         enforceLiveScene('biblia');
-        sendCommand('show_bible_verse', { reference: data.referencia, version: data.version, text: data.texto }, 'all');
+        sendCommand('show_bible_verse', { 
+            reference: data.referencia, 
+            version: data.version, 
+            text: data.texto,
+            libro_db: data.libro_db,
+            capitulo: data.capitulo,
+            versiculo: data.versiculo_inicio || 1
+        }, 'all');
     } catch (e) {
         alert("❌ Fallo crítico de red o de base de datos al buscar versículo.");
     }

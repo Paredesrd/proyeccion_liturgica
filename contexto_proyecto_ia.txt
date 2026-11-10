@@ -1,0 +1,1409 @@
+# CONTEXTO DEL PROYECTO PARA IA
+Este archivo contiene la estructura de directorios y el código fuente principal del proyecto.
+
+## ESTRUCTURA DE DIRECTORIOS
+```text
+proyeccion_liturgica/
+    contexto_proyecto_ia.txt
+    desktop.py
+    main.py
+    requirements.txt
+    web_app.py
+    core/
+        config.py
+        logger.py
+        security.py
+    database/
+        connection.py
+        models.py
+        __init__.py
+    routers/
+        admin_router.py
+        bible_router.py
+        media_router.py
+        projection_router.py
+        __init__.py
+    schemas/
+        admin_schemas.py
+    services/
+        anuncio_service.py
+        birthday_service.py
+        cancion_service.py
+        ofrenda_service.py
+        __init__.py
+    utils/
+```
+
+## CÓDIGO FUENTE
+
+### ARCHIVO: contexto_proyecto_ia.txt
+```text
+
+```
+
+### ARCHIVO: desktop.py
+```python
+import sys
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEngineProfile
+from PyQt6.QtCore import QUrl, Qt
+
+from core.config import settings
+from core.logger import log
+
+
+class LiturgicalWindow(QMainWindow):
+    def __init__(self, url: str, title: str, is_fullscreen: bool = False, target_screen=None):
+        super().__init__()
+        self.setWindowTitle(title)
+        self.is_fullscreen_mode = is_fullscreen
+
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        self.web_view = QWebEngineView()
+        layout.addWidget(self.web_view)
+
+        # Optimización de caché: Forzar uso de RAM en lugar de disco
+        # Evita la degradación del SSD al reproducir videos de fondo de forma continua.
+        profile = self.web_view.page().profile()
+        profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.MemoryHttpCache)
+
+        # Configuraciones críticas de reproducción y seguridad del contenedor
+        web_settings = self.web_view.page().settings()
+        web_settings.setAttribute(QWebEngineSettings.WebAttribute.PlaybackRequiresUserGesture, False)
+        web_settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+
+        self.web_view.setUrl(QUrl(url))
+
+        if target_screen:
+            self.setScreen(target_screen)
+            self.move(target_screen.geometry().topLeft())
+
+        if self.is_fullscreen_mode:
+            self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+            self.showFullScreen()
+        else:
+            self.resize(1280, 720)
+            self.show()
+
+    def keyPressEvent(self, event):
+        # Mitigación de riesgo: ESC desactiva el fullscreen para recuperar control,
+        # pero NUNCA apaga el proceso principal. El cierre se hace desde la [X] nativa.
+        if event.key() == Qt.Key.Key_Escape and self.is_fullscreen_mode:
+            self.showNormal()
+            self.is_fullscreen_mode = False
+            log.info(f"Modo ventana activado manualmente mediante ESC para la ventana: {self.windowTitle()}")
+
+
+def run_desktop_app():
+    # Inyección de banderas Chromium de alto rendimiento ANTES de instanciar la interfaz
+    sys.argv.extend([
+        "--enable-gpu-rasterization",
+        "--ignore-gpu-blocklist",
+        "--enable-zero-copy",
+        "--disable-software-rasterizer"
+    ])
+
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication(sys.argv)
+
+    app.setQuitOnLastWindowClosed(True)
+
+    screens = app.screens()
+    num_screens = len(screens)
+
+    if num_screens > 1:
+        log.info(f"Topología detectada: {num_screens} monitores. Desplegando en Producción.")
+        control_screen = screens[0]
+        projector_screen = screens[1]
+        projector_fullscreen = True
+    else:
+        log.warning("Topología detectada: 1 monitor. Desplegando en Desarrollo (Modo Ventana).")
+        control_screen = screens[0]
+        projector_screen = screens[0]
+        projector_fullscreen = False
+
+    control_win = LiturgicalWindow(
+        url=f"http://127.0.0.1:{settings.PORT}/",
+        title="Panel de Control",
+        is_fullscreen=False,
+        target_screen=control_screen
+    )
+
+    projector_win = LiturgicalWindow(
+        url=f"http://127.0.0.1:{settings.PORT}/projector",
+        title="Proyector",
+        is_fullscreen=projector_fullscreen,
+        target_screen=projector_screen
+    )
+
+    # Mantener referencias para evitar la recolección de basura (Garbage Collector)
+    app.control_win = control_win
+    app.projector_win = projector_win
+
+    return app.exec()
+```
+
+### ARCHIVO: main.py
+```python
+import sys
+import os
+
+# =====================================================================
+# 1. BLINDAJE DE CONSOLA (DEBE ESTAR AQUÍ, EN LA CIMA DEL ARCHIVO)
+# =====================================================================
+if getattr(sys, 'frozen', False):
+    base_path = os.path.dirname(os.path.abspath(sys.executable))
+else:
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+# Forzamos la creación del log inmediatamente para que ninguna librería colapse
+log_file = open(os.path.join(base_path, "backend_error.log"), "a", encoding="utf-8")
+sys.stdout = log_file
+sys.stderr = log_file
+
+# =====================================================================
+# 2. IMPORTACIONES DEL SISTEMA
+# =====================================================================
+import time
+import webbrowser
+import socket
+import threading
+import uvicorn
+from desktop import run_desktop_app
+from core.config import settings
+from core.logger import log
+from web_app import app
+
+
+def get_local_ip():
+    """Obtiene la IP local de forma pasiva y sin requerir Internet."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+def start_server():
+    """Ejecución del servidor web."""
+    uvicorn.run(app, host="0.0.0.0", port=settings.PORT)
+
+
+if __name__ == "__main__":
+    local_ip = get_local_ip()
+
+    log.info("Iniciando infraestructura de backend en red local...")
+    print("================================================================")
+    print("ACCESO WEB DISPONIBLE (Para cualquier dispositivo en la misma red):")
+    print(f" -> Control:     http://{local_ip}:{settings.PORT}/")
+    print(f" -> Proyector:   http://{local_ip}:{settings.PORT}/projector")
+    print(f" -> Admin:       http://{local_ip}:{settings.PORT}/admin")
+    print("================================================================\n")
+
+    # Obligamos al sistema a guardar el texto en el archivo físico en este instante
+    log_file.flush()
+
+    # Iniciar servidor en segundo plano
+    server_thread = threading.Thread(target=start_server, daemon=True)
+    server_thread.start()
+
+    time.sleep(3)
+    log.info("Servidor en línea. Desplegando interfaces de escritorio nativas...")
+
+    admin_url = f"http://127.0.0.1:{settings.PORT}/admin"
+    webbrowser.open(admin_url)
+
+    try:
+        run_desktop_app()
+    finally:
+        log.warning("Cerrando GUI. El hilo del servidor daemon se destruirá automáticamente.")
+        log.info("Sistema detenido correctamente.")
+        log_file.close()
+```
+
+### ARCHIVO: requirements.txt
+```text
+Error al leer el archivo: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+
+```
+
+### ARCHIVO: web_app.py
+```python
+from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
+import os
+
+from core.config import settings
+from core.logger import log
+from database.connection import init_db
+from routers import admin_router, projection_router, media_router, bible_router
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION
+)
+
+# Configuración de CORS estricta pero funcional para red local
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Montaje de recursos estáticos y plantillas
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+
+# Registro unificado de Routers
+app.include_router(admin_router.router)
+app.include_router(projection_router.router)
+app.include_router(media_router.router)
+app.include_router(bible_router.router)
+
+@app.on_event("startup")
+async def startup_event():
+    log.info("Iniciando motor del servidor y componentes de persistencia...")
+    init_db()
+
+@app.get("/", response_class=HTMLResponse)
+async def get_control_panel(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="control.html"
+    )
+
+@app.get("/projector", response_class=HTMLResponse)
+async def get_projector_view(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="projector.html"
+    )
+```
+
+### ARCHIVO: core\config.py
+```python
+import os
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    PROJECT_NAME: str = "Sistema de Proyección Litúrgica"
+    VERSION: str = "1.0.0"
+
+    # Red y Despliegue
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+
+    # Base de Datos Unificada (Múltiples Motores)
+    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    DATABASE_URL: str = f"sqlite:///{os.path.join(BASE_DIR, 'liturgia.db')}"
+    BIBLE_DB_URL: str = f"sqlite:///{os.path.join(BASE_DIR, 'database', 'biblias.db')}"
+
+    # Seguridad
+    SECRET_KEY: str = "cambiar-esto-en-produccion-inmediatamente"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+
+settings = Settings()
+```
+
+### ARCHIVO: core\logger.py
+```python
+import logging
+import sys
+
+
+def setup_logger(name: str = "liturgia_core") -> logging.Logger:
+    logger = logging.getLogger(name)
+
+    if not logger.handlers:
+        logger.setLevel(logging.INFO)
+        handler = logging.StreamHandler(sys.stdout)
+
+        formatter = logging.Formatter(
+            fmt='%(asctime)s | %(levelname)-8s | %(module)s:%(funcName)s:%(lineno)d | %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger
+
+
+log = setup_logger()
+```
+
+### ARCHIVO: core\security.py
+```python
+from fastapi import Security, HTTPException, status
+from fastapi.security import APIKeyHeader
+from core.config import settings
+
+# Usaremos un encabezado estático por ahora para bloquear acceso público no autorizado
+API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=True)
+
+def verify_api_key(api_key_header: str = Security(API_KEY_HEADER)):
+    # En producción real, esto se validaría contra la base de datos o variables de entorno seguras
+    if api_key_header != settings.SECRET_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Credenciales de acceso inválidas"
+        )
+    return api_key_header
+```
+
+### ARCHIVO: database\connection.py
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+from core.config import settings
+from core.logger import log
+
+# Motor 1: Datos transaccionales de la aplicación
+engine = create_engine(
+    settings.DATABASE_URL,
+    connect_args={"check_same_thread": False}
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Motor 2: Datos de solo lectura (Biblias)
+bible_engine = create_engine(
+    settings.BIBLE_DB_URL,
+    connect_args={"check_same_thread": False}
+)
+BibleSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=bible_engine)
+
+Base = declarative_base()
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_bible_db():
+    db = BibleSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def init_db():
+    """Inicializa el esquema de la base de datos principal."""
+    log.info("Verificando integridad del esquema de base de datos...")
+    from database.models import Cumpleanos, Anuncio, TextoBiblico, Ofrenda, Cancion
+
+    try:
+        Base.metadata.create_all(bind=engine)
+        log.info("Esquema de base de datos verificado y activo.")
+    except Exception as e:
+        log.critical(f"Fallo crítico al inicializar la base de datos: {str(e)}")
+        raise e
+```
+
+### ARCHIVO: database\models.py
+```python
+from sqlalchemy import Column, Integer, String, Date, Text, Boolean
+from database.connection import Base
+
+class Cumpleanos(Base):
+    __tablename__ = "cumpleanos"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, index=True, nullable=False)
+    fecha_nacimiento = Column(Date, nullable=False)
+
+class Anuncio(Base):
+    __tablename__ = "anuncios"
+    id = Column(Integer, primary_key=True, index=True)
+    titulo = Column(String, nullable=False)
+    contenido = Column(Text, nullable=False)
+    activo = Column(Boolean, default=True)
+
+class TextoBiblico(Base):
+    __tablename__ = "textos_biblicos"
+    id = Column(Integer, primary_key=True, index=True)
+    referencia = Column(String, index=True, nullable=False)
+    texto = Column(Text, nullable=False)
+    version = Column(String, default="RVR1960", index=True)
+
+class Ofrenda(Base):
+    __tablename__ = "ofrendas"
+    id = Column(Integer, primary_key=True, index=True)
+    tipo = Column(String, index=True, nullable=False)
+    monto = Column(Integer, nullable=True)
+    descripcion = Column(Text, nullable=True)
+    fecha = Column(Date, nullable=False, index=True)
+    anonima = Column(Boolean, default=False)
+
+class Cancion(Base):
+    __tablename__ = "canciones"
+    id = Column(Integer, primary_key=True, index=True)
+    titulo = Column(String, index=True, nullable=False)
+    autor = Column(String, index=True, nullable=True)
+    letra = Column(Text, nullable=False)
+```
+
+### ARCHIVO: database\__init__.py
+```python
+
+```
+
+### ARCHIVO: routers\admin_router.py
+```python
+from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+import os
+
+from database.connection import get_db
+from core.security import verify_api_key
+from schemas.admin_schemas import (
+    CumpleanosCreate, AnuncioCreate, AnuncioUpdate,
+    CancionCreate, CancionUpdate
+)
+
+from services import birthday_service, anuncio_service, cancion_service
+
+router = APIRouter()
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+
+# ==================== RUTAS BASE ====================
+
+@router.get("/admin", response_class=HTMLResponse)
+def admin_panel(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="admin.html"
+    )
+
+# ==================== RUTAS DE CUMPLEAÑOS ====================
+# Nota: Debes refactorizar birthday_service para aceptar db: Session al igual que anuncio_service
+
+@router.get("/api/admin/birthdays", dependencies=[Depends(verify_api_key)])
+def get_birthdays(db: Session = Depends(get_db)):
+    return birthday_service.obtener_todos_cumpleanos(db)
+
+@router.get("/api/admin/birthdays/week", dependencies=[Depends(verify_api_key)])
+def get_birthdays_week(db: Session = Depends(get_db)):
+    return birthday_service.obtener_cumpleanos_rango(db)
+
+@router.post("/api/admin/birthdays", dependencies=[Depends(verify_api_key)])
+def add_birthday(data: CumpleanosCreate, db: Session = Depends(get_db)):
+    try:
+        return birthday_service.crear_cumpleanos(db, data)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno al crear cumpleaños")
+
+@router.delete("/api/admin/birthdays/{id}", dependencies=[Depends(verify_api_key)])
+def delete_birthday(id: int, db: Session = Depends(get_db)):
+    if birthday_service.eliminar_cumpleanos(db, id):
+        return {"message": "Eliminado correctamente"}
+    raise HTTPException(status_code=404, detail="No encontrado")
+
+# ==================== RUTAS DE ANUNCIOS ====================
+
+@router.get("/api/admin/anuncios", dependencies=[Depends(verify_api_key)])
+def get_anuncios(db: Session = Depends(get_db)):
+    return anuncio_service.obtener_todos_anuncios(db)
+
+@router.post("/api/admin/anuncios", dependencies=[Depends(verify_api_key)])
+def create_anuncio(data: AnuncioCreate, db: Session = Depends(get_db)):
+    try:
+        return anuncio_service.crear_anuncio(db, data)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno al crear anuncio")
+
+@router.put("/api/admin/anuncios/{id}", dependencies=[Depends(verify_api_key)])
+def update_anuncio(id: int, data: AnuncioUpdate, db: Session = Depends(get_db)):
+    try:
+        resultado = anuncio_service.actualizar_anuncio(db, id, data)
+        if resultado is None:
+            raise HTTPException(status_code=404, detail="Anuncio no encontrado")
+        return resultado
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno al actualizar anuncio")
+
+@router.delete("/api/admin/anuncios/{id}", dependencies=[Depends(verify_api_key)])
+def delete_anuncio(id: int, db: Session = Depends(get_db)):
+    if anuncio_service.eliminar_anuncio(db, id):
+        return {"message": "Eliminado correctamente"}
+    raise HTTPException(status_code=404, detail="No encontrado")
+
+# ==================== RUTAS DE CANCIONERO ====================
+# Nota: Debes refactorizar cancion_service para aceptar db: Session al igual que anuncio_service
+
+@router.get("/api/admin/canciones", dependencies=[Depends(verify_api_key)])
+def get_canciones(db: Session = Depends(get_db)):
+    return cancion_service.obtener_todas_canciones(db)
+
+@router.post("/api/admin/canciones", dependencies=[Depends(verify_api_key)])
+def add_cancion(data: CancionCreate, db: Session = Depends(get_db)):
+    try:
+        return cancion_service.crear_cancion(db, data)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno al registrar canción")
+
+@router.put("/api/admin/canciones/{id}", dependencies=[Depends(verify_api_key)])
+def edit_cancion(id: int, data: CancionUpdate, db: Session = Depends(get_db)):
+    try:
+        resultado = cancion_service.actualizar_cancion(db, id, data)
+        if resultado is None:
+            raise HTTPException(status_code=404, detail="Canción no encontrada")
+        return resultado
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno al actualizar canción")
+
+@router.delete("/api/admin/canciones/{id}", dependencies=[Depends(verify_api_key)])
+def drop_cancion(id: int, db: Session = Depends(get_db)):
+    if cancion_service.eliminar_cancion(db, id):
+        return {"message": "Canción eliminada correctamente"}
+    raise HTTPException(status_code=404, detail="Canción no encontrada")
+```
+
+### ARCHIVO: routers\bible_router.py
+```python
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+import re
+import unicodedata
+
+from database.connection import get_bible_db
+from core.logger import log
+
+router = APIRouter()
+
+BIBLE_ALIASES = {
+    "genesis": ["gen"], "exodo": ["exo"], "levitico": ["lev"], "numeros": ["num"], "deuteronomio": ["deut", "deu"],
+    "josue": ["jos"], "jueces": ["jue"], "rut": ["rut"],
+    "1samuel": ["1sam", "1sa", "1sm"], "2samuel": ["2sam", "2sa", "2sm"],
+    "1reyes": ["1rey", "1re"], "2reyes": ["2rey", "2re"],
+    "1cronicas": ["1cro", "1cr"], "2cronicas": ["2cro", "2cr"],
+    "esdras": ["esd"], "nehemias": ["neh"], "ester": ["est"],
+    "job": ["job"], "salmos": ["sal", "slm"], "proverbios": ["prov", "pro", "prv", "probervios"],
+    "eclesiastes": ["ecl"], "cantares": ["can", "cnt"],
+    "isaias": ["isa"], "jeremias": ["jer"], "lamentaciones": ["lam"], "ezequiel": ["eze"], "daniel": ["dan", "dnl"],
+    "oseas": ["ose", "hozeas"], "joel": ["joe"], "amos": ["amo"], "abdias": ["abd"], "jonas": ["jon"],
+    "miqueas": ["miq"],
+    "nahum": ["nah"], "habacuc": ["hab"], "sofonias": ["sof"], "hageo": ["hag"], "zacarias": ["zac"],
+    "malaquias": ["mal"],
+    "mateo": ["mat"], "marcos": ["mar", "mrk"], "lucas": ["luc", "luk"], "juan": ["jn", "jhn", "jua"],
+    "hechos": ["hech", "hch", "act"],
+    "romanos": ["rom"], "1corintios": ["1cor", "1co"], "2corintios": ["2cor", "2co"],
+    "galatas": ["gal"], "efesios": ["efe", "eph"], "filipenses": ["fil", "php"], "colosenses": ["col"],
+    "1tesalonicenses": ["1tes", "1ts"], "2tesalonicenses": ["2tes", "2ts"],
+    "1timoteo": ["1tim", "1ti"], "2timoteo": ["2tim", "2ti"], "tito": ["tit"], "filemon": ["flm"],
+    "hebreos": ["heb", "ebreos"], "santiago": ["stg", "san", "jas"],
+    "1pedro": ["1pe", "1ped", "1pt"], "2pedro": ["2pe", "2ped", "2pt"],
+    "1juan": ["1jn", "1ju"], "2juan": ["2jn", "2ju"], "3juan": ["3jn", "3ju"], "judas": ["jud"],
+    "apocalipsis": ["apoc", "apo", "rev"]
+}
+
+def normalize(text_val):
+    if not text_val: return ""
+    text_val = text_val.lower().strip()
+    text_val = re.sub(r'^1\s*', '1', text_val)
+    text_val = re.sub(r'^2\s*', '2', text_val)
+    text_val = re.sub(r'^3\s*', '3', text_val)
+    text_val = text_val.replace(" ", "")
+    return ''.join(c for c in unicodedata.normalize('NFD', text_val) if unicodedata.category(c) != 'Mn')
+
+def get_standard_book(search_term):
+    norm_term = normalize(search_term)
+    for standard, aliases in BIBLE_ALIASES.items():
+        if norm_term == standard or standard.startswith(norm_term):
+            return standard
+        for a in aliases:
+            if norm_term == a or a.startswith(norm_term):
+                return standard
+    return None
+
+@router.get("/api/bible/versions")
+def get_versions(db: Session = Depends(get_bible_db)):
+    try:
+        query = text("SELECT DISTINCT version FROM versiculos ORDER BY version")
+        result = db.execute(query).fetchall()
+        return {"versiones": [row[0] for row in result]}
+    except Exception as e:
+        log.error(f"Error al obtener versiones bíblicas: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno al consultar versiones")
+
+@router.get("/api/bible/books")
+def get_books(version: str = "RVR1960", db: Session = Depends(get_bible_db)):
+    try:
+        query = text("SELECT DISTINCT nombre_libro_original FROM versiculos WHERE version = :version")
+        result = db.execute(query, {"version": version}).fetchall()
+        return {"libros": [row[0] for row in result]}
+    except Exception as e:
+        log.error(f"Error al obtener libros bíblicos: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno al consultar libros")
+
+@router.get("/api/bible/search")
+def search_bible(libro: str, capitulo: str, version: str = "RVR1960", db: Session = Depends(get_bible_db)):
+    std_book = get_standard_book(libro)
+    if not std_book:
+        raise HTTPException(status_code=404, detail=f"[ERROR_LIBRO] Libro '{libro}' no reconocido.")
+
+    chap_str = capitulo.strip()
+    verse_str = None
+    if ":" in capitulo:
+        parts = capitulo.split(":", 1)
+        chap_str = parts[0].strip()
+        verse_str = parts[1].strip()
+
+    try:
+        chap_num = int(re.sub(r'\D', '', chap_str))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="[ERROR_SINTAXIS] El capítulo debe ser un número válido.")
+
+    try:
+        check_query = text("SELECT 1 FROM versiculos WHERE version = :version AND libro = :libro AND capitulo = :capitulo LIMIT 1")
+        exists = db.execute(check_query, {"version": version, "libro": std_book, "capitulo": chap_num}).fetchone()
+        if not exists:
+            raise HTTPException(status_code=404, detail=f"[ERROR_CAPÍTULO] El capítulo {chap_num} no existe en este libro.")
+
+        if not verse_str:
+            data_query = text("SELECT versiculo, texto, nombre_libro_original FROM versiculos WHERE version = :version AND libro = :libro AND capitulo = :capitulo ORDER BY versiculo")
+            rows = db.execute(data_query, {"version": version, "libro": std_book, "capitulo": chap_num}).fetchall()
+
+            final_text = "\n".join([f"{r[0]}. {r[1]}" for r in rows])
+            ref_name = rows[0][2]
+            referencia = f"{ref_name} {chap_num}"
+        else:
+            req_verses = []
+            if "-" in verse_str:
+                nums = re.findall(r'\d+', verse_str)
+                if len(nums) >= 2:
+                    req_verses = list(range(int(nums[0]), int(nums[1]) + 1))
+                elif len(nums) == 1:
+                    req_verses = [int(nums[0])]
+            else:
+                nums = re.findall(r'\d+', verse_str)
+                if nums:
+                    req_verses = [int(nums[0])]
+
+            if not req_verses:
+                raise HTTPException(status_code=400, detail="[ERROR_SINTAXIS] Formato de versículo inválido.")
+
+            placeholders = ','.join(f':v{i}' for i in range(len(req_verses)))
+            params = {"version": version, "libro": std_book, "capitulo": chap_num}
+            for i, v in enumerate(req_verses):
+                params[f"v{i}"] = v
+
+            data_query = text(f"SELECT versiculo, texto, nombre_libro_original FROM versiculos WHERE version = :version AND libro = :libro AND capitulo = :capitulo AND versiculo IN ({placeholders}) ORDER BY versiculo")
+            rows = db.execute(data_query, params).fetchall()
+
+            if not rows:
+                raise HTTPException(status_code=404, detail=f"[ERROR_VERSÍCULO] Versículo(s) {verse_str} no encontrado(s).")
+
+            final_text = "\n".join([f"{r[0]}. {r[1]}" for r in rows])
+            ref_name = rows[0][2]
+            referencia = f"{ref_name} {chap_num}"
+
+        return {
+            "referencia": referencia,
+            "version": version,
+            "texto": final_text
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        log.error(f"Error crítico en búsqueda bíblica: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno al procesar búsqueda bíblica")
+```
+
+### ARCHIVO: routers\media_router.py
+```python
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
+import os
+import shutil
+import uuid
+import re
+import json
+
+router = APIRouter()
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MEDIA_DIR = os.path.join(BASE_DIR, "static", "media")
+DATA_DIR = os.path.join(BASE_DIR, "static", "data")
+
+os.makedirs(os.path.join(MEDIA_DIR, "audio"), exist_ok=True)
+os.makedirs(os.path.join(MEDIA_DIR, "backgrounds"), exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
+
+SETLIST_FILE = os.path.join(DATA_DIR, "setlist.json")
+PREDICA_FILE = os.path.join(DATA_DIR, "predica.json")
+
+# Restricción estricta de formatos
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".webm"}
+
+
+def _sanitize_filename(name: str) -> str:
+    clean_name = name.replace(" ", "_")
+    clean_name = re.sub(r'[^a-zA-Z0-9_.-]', '', clean_name)
+    return clean_name
+
+
+@router.post("/api/media/upload")
+async def upload_media(file: UploadFile = File(...), media_type: str = Form(...)):
+    if media_type not in ["audio", "backgrounds"]:
+        raise HTTPException(status_code=400, detail="Tipo de medio no soportado.")
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if media_type == "backgrounds" and ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Formato no permitido. Use JPG, PNG, WEBP, MP4 o WEBM.")
+
+    safe_name = _sanitize_filename(file.filename)
+    unique_filename = f"{uuid.uuid4().hex[:6]}_{safe_name}"
+    file_path = os.path.join(MEDIA_DIR, media_type, unique_filename)
+
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Fallo de E/S en disco: {str(e)}")
+
+    return {
+        "url": f"/static/media/{media_type}/{unique_filename}",
+        "original_filename": file.filename
+    }
+
+
+@router.get("/api/media/backgrounds")
+def get_backgrounds():
+    bg_dir = os.path.join(MEDIA_DIR, "backgrounds")
+    files = []
+    if os.path.exists(bg_dir):
+        for filename in os.listdir(bg_dir):
+            if os.path.isfile(os.path.join(bg_dir, filename)):
+                if filename.startswith("default."):
+                    continue
+                display_name = filename.split('_', 1)[1] if '_' in filename else filename
+                files.append({
+                    "filename": display_name,
+                    "raw_filename": filename,
+                    "url": f"/static/media/backgrounds/{filename}"
+                })
+    return {"backgrounds": files}
+
+
+@router.delete("/api/media/backgrounds/{filename}")
+def delete_background(filename: str):
+    safe_filename = os.path.basename(filename)  # Previene ataques de salto de directorio
+    file_path = os.path.join(MEDIA_DIR, "backgrounds", safe_filename)
+
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+            return {"message": "Fondo eliminado físicamente del servidor."}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="Error de permisos al intentar borrar.")
+
+    raise HTTPException(status_code=404, detail="El archivo no existe en el disco.")
+
+
+@router.get("/api/media/setlist")
+def get_setlist():
+    if os.path.exists(SETLIST_FILE):
+        with open(SETLIST_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"canciones_ids": []}
+
+
+@router.post("/api/media/setlist")
+async def update_setlist(request: Request):
+    data = await request.json()
+    with open(SETLIST_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    return {"status": "ok"}
+
+
+@router.get("/api/predica/bosquejo")
+def get_bosquejo():
+    if os.path.exists(PREDICA_FILE):
+        with open(PREDICA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"diapositivas": []}
+
+
+@router.post("/api/predica/bosquejo")
+async def save_bosquejo(request: Request):
+    data = await request.json()
+    with open(PREDICA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    return {"status": "ok"}
+```
+
+### ARCHIVO: routers\projection_router.py
+```python
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends
+from sqlalchemy.orm import Session
+
+from database.connection import get_db
+from core.logger import log
+from schemas.admin_schemas import OfrendaCreate
+from services import birthday_service, anuncio_service, ofrenda_service
+
+router = APIRouter()
+
+
+class ConnectionManager:
+    """Gestiona las conexiones WebSocket con aislamiento Preview / Program."""
+
+    def __init__(self):
+        self.live_projectors: list[WebSocket] = []
+        self.preview_monitors: list[WebSocket] = []
+        self.control_clients: list[WebSocket] = []
+
+    async def connect_live(self, websocket: WebSocket):
+        await websocket.accept()
+        self.live_projectors.append(websocket)
+        log.info(f"Proyector EN VIVO conectado. Total activos: {len(self.live_projectors)}")
+
+    async def connect_preview(self, websocket: WebSocket):
+        await websocket.accept()
+        self.preview_monitors.append(websocket)
+        log.info(f"Monitor PREVIEW conectado. Total activos: {len(self.preview_monitors)}")
+
+    async def connect_control(self, websocket: WebSocket):
+        await websocket.accept()
+        self.control_clients.append(websocket)
+        log.info(f"Cliente de control conectado. Total activos: {len(self.control_clients)}")
+
+    def disconnect(self, websocket: WebSocket, client_type: str):
+        if client_type == "live" and websocket in self.live_projectors:
+            self.live_projectors.remove(websocket)
+            log.info(f"Proyector EN VIVO desconectado. Restantes: {len(self.live_projectors)}")
+        elif client_type == "preview" and websocket in self.preview_monitors:
+            self.preview_monitors.remove(websocket)
+            log.info(f"Monitor PREVIEW desconectado. Restantes: {len(self.preview_monitors)}")
+        elif client_type == "control" and websocket in self.control_clients:
+            self.control_clients.remove(websocket)
+            log.info(f"Cliente de control desconectado. Restantes: {len(self.control_clients)}")
+
+    async def send_to_live(self, message: dict):
+        for client in self.live_projectors[:]:
+            try:
+                await client.send_json(message)
+            except Exception as e:
+                log.error(f"Fallo de transmisión a Proyector LIVE: {str(e)}")
+                self.disconnect(client, "live")
+
+    async def send_to_preview(self, message: dict):
+        for client in self.preview_monitors[:]:
+            try:
+                await client.send_json(message)
+            except Exception as e:
+                log.error(f"Fallo de transmisión a Monitor PREVIEW: {str(e)}")
+                self.disconnect(client, "preview")
+
+
+manager = ConnectionManager()
+
+
+@router.websocket("/ws/{client_type}")
+async def websocket_endpoint(websocket: WebSocket, client_type: str):
+    if client_type == "live":
+        await manager.connect_live(websocket)
+        try:
+            while True:
+                await websocket.receive_text()  # Keepalive
+        except WebSocketDisconnect:
+            manager.disconnect(websocket, "live")
+        except Exception as e:
+            log.error(f"Excepción en WS LIVE: {str(e)}")
+            manager.disconnect(websocket, "live")
+
+    elif client_type == "preview":
+        await manager.connect_preview(websocket)
+        try:
+            while True:
+                await websocket.receive_text()  # Keepalive
+        except WebSocketDisconnect:
+            manager.disconnect(websocket, "preview")
+        except Exception as e:
+            log.error(f"Excepción en WS PREVIEW: {str(e)}")
+            manager.disconnect(websocket, "preview")
+
+    elif client_type == "control":
+        await manager.connect_control(websocket)
+        try:
+            while True:
+                data = await websocket.receive_json()
+                # El motor de enrutamiento: Decide a qué canal enviar la señal
+                target = data.get("target", "all")
+
+                if target == "live":
+                    await manager.send_to_live(data)
+                elif target == "preview":
+                    await manager.send_to_preview(data)
+                else:
+                    # Comandos de emergencia o globales (clear, blackout) van a ambas pantallas
+                    await manager.send_to_live(data)
+                    await manager.send_to_preview(data)
+
+        except WebSocketDisconnect:
+            manager.disconnect(websocket, "control")
+        except Exception as e:
+            log.error(f"Excepción en WS CONTROL: {str(e)}")
+            manager.disconnect(websocket, "control")
+
+
+# ==================== RUTAS DE PROYECCIÓN (SÍNCRONAS) ====================
+
+@router.get("/api/projection/birthdays")
+def get_projection_birthdays(db: Session = Depends(get_db)):
+    return {"cumpleanos": birthday_service.obtener_cumpleanos_rango(db)}
+
+
+@router.get("/api/projection/anuncios")
+def get_projection_anuncios(db: Session = Depends(get_db)):
+    return {"anuncios": anuncio_service.obtener_anuncios_activos(db)}
+
+
+@router.post("/api/projection/ofrenda")
+def register_ofrenda(data: OfrendaCreate, db: Session = Depends(get_db)):
+    try:
+        return ofrenda_service.crear_ofrenda(db, data)
+    except Exception as e:
+        log.error(f"Error al registrar ofrenda desde proyección: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno al registrar ofrenda")
+
+
+@router.get("/api/projection/ofrendas/total")
+def get_ofrendas_total(db: Session = Depends(get_db)):
+    return ofrenda_service.obtener_total_ofrendas(db)
+```
+
+### ARCHIVO: routers\__init__.py
+```python
+
+```
+
+### ARCHIVO: schemas\admin_schemas.py
+```python
+from pydantic import BaseModel, Field
+
+class CumpleanosCreate(BaseModel):
+    nombre: str = Field(..., min_length=1, description="Nombre completo de la persona")
+    fecha: str = Field(..., pattern=r'^\d{4}-\d{2}-\d{2}$', description="Fecha en formato YYYY-MM-DD")
+
+class AnuncioCreate(BaseModel):
+    titulo: str = Field(..., min_length=1, description="Título del anuncio")
+    contenido: str = Field(..., min_length=1, description="Contenido del anuncio")
+    activo: bool = True
+
+class AnuncioUpdate(BaseModel):
+    titulo: str | None = Field(None, min_length=1)
+    contenido: str | None = Field(None, min_length=1)
+    activo: bool | None = None
+
+class CancionCreate(BaseModel):
+    titulo: str = Field(..., min_length=1, description="Título de la canción")
+    autor: str | None = Field(None, description="Autor o ministerio")
+    letra: str = Field(..., min_length=1, description="Letra completa de la canción")
+
+class CancionUpdate(BaseModel):
+    titulo: str | None = Field(None, min_length=1)
+    autor: str | None = Field(None)
+    letra: str | None = Field(None, min_length=1)
+
+class OfrendaCreate(BaseModel):
+    tipo: str = Field(..., min_length=1, description="Tipo de ofrenda")
+    monto: int | None = Field(None, ge=0, description="Monto monetario (opcional)")
+    descripcion: str | None = None
+    fecha: str | None = Field(None, pattern=r'^\d{4}-\d{2}-\d{2}$', description="Fecha en formato YYYY-MM-DD")
+    anonima: bool = False
+```
+
+### ARCHIVO: services\anuncio_service.py
+```python
+"""Servicios para gestión de anuncios litúrgicos."""
+from sqlalchemy.orm import Session
+from database.models import Anuncio
+from core.logger import log
+from schemas.admin_schemas import AnuncioCreate, AnuncioUpdate
+
+
+def obtener_anuncios_activos(db: Session):
+    """Obtiene todos los anuncios activos."""
+    try:
+        anuncios = db.query(Anuncio).filter(Anuncio.activo == True).all()
+        return [{"id": a.id, "titulo": a.titulo, "contenido": a.contenido, "activo": a.activo} for a in anuncios]
+    except Exception as e:
+        log.error(f"Error al obtener anuncios activos: {str(e)}")
+        return []
+
+
+def obtener_todos_anuncios(db: Session):
+    """Obtiene todos los anuncios (activos e inactivos)."""
+    try:
+        anuncios = db.query(Anuncio).order_by(Anuncio.id.desc()).all()
+        return [{"id": a.id, "titulo": a.titulo, "contenido": a.contenido, "activo": a.activo} for a in anuncios]
+    except Exception as e:
+        log.error(f"Error al obtener todos los anuncios: {str(e)}")
+        return []
+
+
+def crear_anuncio(db: Session, data: AnuncioCreate):
+    """Crea un nuevo anuncio."""
+    try:
+        nuevo = Anuncio(
+            titulo=data.titulo.strip(),
+            contenido=data.contenido.strip(),
+            activo=data.activo
+        )
+        db.add(nuevo)
+        db.commit()
+        db.refresh(nuevo)
+        return {"id": nuevo.id, "titulo": nuevo.titulo, "contenido": nuevo.contenido, "activo": nuevo.activo}
+    except Exception as e:
+        db.rollback()
+        log.error(f"Error al crear anuncio: {str(e)}")
+        raise
+
+
+def actualizar_anuncio(db: Session, id: int, data: AnuncioUpdate):
+    """Actualiza un anuncio existente."""
+    try:
+        anuncio = db.query(Anuncio).filter(Anuncio.id == id).first()
+        if not anuncio:
+            return None
+
+        if data.titulo is not None:
+            anuncio.titulo = data.titulo.strip()
+        if data.contenido is not None:
+            anuncio.contenido = data.contenido.strip()
+        if data.activo is not None:
+            anuncio.activo = data.activo
+
+        db.commit()
+        db.refresh(anuncio)
+        return {"id": anuncio.id, "titulo": anuncio.titulo, "contenido": anuncio.contenido, "activo": anuncio.activo}
+    except Exception as e:
+        db.rollback()
+        log.error(f"Error al actualizar anuncio ID {id}: {str(e)}")
+        raise
+
+
+def eliminar_anuncio(db: Session, id: int):
+    """Elimina un anuncio por ID."""
+    try:
+        anuncio = db.query(Anuncio).filter(Anuncio.id == id).first()
+        if anuncio:
+            db.delete(anuncio)
+            db.commit()
+            return True
+        return False
+    except Exception as e:
+        db.rollback()
+        log.error(f"Error al eliminar anuncio ID {id}: {str(e)}")
+        return False
+```
+
+### ARCHIVO: services\birthday_service.py
+```python
+from sqlalchemy import extract
+from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
+from database.models import Cumpleanos
+from core.logger import log
+from schemas.admin_schemas import CumpleanosCreate
+
+
+def obtener_cumpleanos_rango(db: Session):
+    """
+    Obtiene los cumpleaños en una ventana estricta de 7 días:
+    Desde el miércoles pasado hasta el martes siguiente.
+    """
+    try:
+        hoy = datetime.now()
+        # En Python: Lunes=0, Martes=1, Miércoles=2, Jueves=3, Viernes=4, Sábado=5, Domingo=6
+        # Fórmula para hallar cuántos días restar para llegar al miércoles más cercano hacia atrás
+        dias_desde_miercoles = (hoy.weekday() - 2) % 7
+        fecha_inicio = hoy - timedelta(days=dias_desde_miercoles)
+
+        resultados = []
+
+        # Iterar exactamente los 7 días (Miércoles [0] a Martes [6])
+        for i in range(7):
+            fecha_objetivo = fecha_inicio + timedelta(days=i)
+            mes = fecha_objetivo.month
+            dia = fecha_objetivo.day
+
+            cumpleaneros = db.query(Cumpleanos).filter(
+                extract('month', Cumpleanos.fecha_nacimiento) == mes,
+                extract('day', Cumpleanos.fecha_nacimiento) == dia
+            ).all()
+
+            for c in cumpleaneros:
+                # Calcula si es exactamente hoy o mañana para las etiquetas visuales
+                diff_dias = (fecha_objetivo.date() - hoy.date()).days
+
+                resultados.append({
+                    "id": c.id,
+                    "nombre": c.nombre,
+                    "fecha": fecha_objetivo.strftime("%d/%m"),
+                    "dias_diff": diff_dias,
+                    "es_hoy": diff_dias == 0,
+                    "es_manana": diff_dias == 1
+                })
+
+        # Retorna la lista en el orden natural cronológico (Miércoles a Martes)
+        return resultados
+    except Exception as e:
+        log.error(f"Error al obtener cumpleaños en la ventana semanal: {str(e)}")
+        return []
+
+
+def crear_cumpleanos(db: Session, data: CumpleanosCreate):
+    """Crea un nuevo registro de cumpleaños."""
+    try:
+        fecha = datetime.strptime(data.fecha, "%Y-%m-%d").date()
+        nuevo = Cumpleanos(nombre=data.nombre.strip(), fecha_nacimiento=fecha)
+        db.add(nuevo)
+        db.commit()
+        db.refresh(nuevo)
+        return {"id": nuevo.id, "nombre": nuevo.nombre, "fecha": data.fecha}
+    except Exception as e:
+        db.rollback()
+        log.error(f"Error al crear cumpleaños: {str(e)}")
+        raise
+
+
+def eliminar_cumpleanos(db: Session, id: int):
+    """Elimina un registro de cumpleaños por ID."""
+    try:
+        c = db.query(Cumpleanos).filter(Cumpleanos.id == id).first()
+        if c:
+            db.delete(c)
+            db.commit()
+            return True
+        return False
+    except Exception as e:
+        db.rollback()
+        log.error(f"Error al eliminar cumpleaños ID {id}: {str(e)}")
+        return False
+
+
+def obtener_todos_cumpleanos(db: Session):
+    """Obtiene todos los cumpleaños ordenados por fecha."""
+    try:
+        todos = db.query(Cumpleanos).order_by(
+            extract('month', Cumpleanos.fecha_nacimiento),
+            extract('day', Cumpleanos.fecha_nacimiento)
+        ).all()
+        return [
+            {
+                "id": c.id,
+                "nombre": c.nombre,
+                "fecha": c.fecha_nacimiento.strftime("%d/%m"),
+                "fecha_completa": c.fecha_nacimiento.strftime("%Y-%m-%d")
+            }
+            for c in todos
+        ]
+    except Exception as e:
+        log.error(f"Error al obtener todos los cumpleaños: {str(e)}")
+        return []
+```
+
+### ARCHIVO: services\cancion_service.py
+```python
+"""Servicios para gestión del cancionero litúrgico."""
+from sqlalchemy.orm import Session
+from database.models import Cancion
+from core.logger import log
+from schemas.admin_schemas import CancionCreate, CancionUpdate
+
+def obtener_todas_canciones(db: Session):
+    """Obtiene el catálogo completo de canciones en orden alfabético."""
+    try:
+        canciones = db.query(Cancion).order_by(Cancion.titulo.asc()).all()
+        return [{"id": c.id, "titulo": c.titulo, "autor": c.autor, "letra": c.letra} for c in canciones]
+    except Exception as e:
+        log.error(f"Error al obtener canciones: {str(e)}")
+        return []
+
+def crear_cancion(db: Session, data: CancionCreate):
+    """Registra una nueva canción en la base de datos."""
+    try:
+        nueva = Cancion(
+            titulo=data.titulo.strip(),
+            autor=data.autor.strip() if data.autor else "Desconocido",
+            letra=data.letra.strip()
+        )
+        db.add(nueva)
+        db.commit()
+        db.refresh(nueva)
+        return {"id": nueva.id, "titulo": nueva.titulo, "autor": nueva.autor, "letra": nueva.letra}
+    except Exception as e:
+        db.rollback()
+        log.error(f"Error al crear canción: {str(e)}")
+        raise
+
+def actualizar_cancion(db: Session, id: int, data: CancionUpdate):
+    """Actualiza los metadatos o la letra de una canción existente."""
+    try:
+        cancion = db.query(Cancion).filter(Cancion.id == id).first()
+        if not cancion:
+            return None
+
+        if data.titulo is not None:
+            cancion.titulo = data.titulo.strip()
+        if data.autor is not None:
+            cancion.autor = data.autor.strip()
+        if data.letra is not None:
+            cancion.letra = data.letra.strip()
+
+        db.commit()
+        db.refresh(cancion)
+        return {"id": cancion.id, "titulo": cancion.titulo, "autor": cancion.autor, "letra": cancion.letra}
+    except Exception as e:
+        db.rollback()
+        log.error(f"Error al actualizar canción ID {id}: {str(e)}")
+        raise
+
+def eliminar_cancion(db: Session, id: int):
+    """Borra una canción del catálogo permanentemente."""
+    try:
+        cancion = db.query(Cancion).filter(Cancion.id == id).first()
+        if cancion:
+            db.delete(cancion)
+            db.commit()
+            return True
+        return False
+    except Exception as e:
+        db.rollback()
+        log.error(f"Error al eliminar canción ID {id}: {str(e)}")
+        return False
+```
+
+### ARCHIVO: services\ofrenda_service.py
+```python
+"""Servicios para gestión de ofrendas litúrgicas."""
+from sqlalchemy.orm import Session
+from datetime import datetime, date
+from database.models import Ofrenda
+from core.logger import log
+from schemas.admin_schemas import OfrendaCreate
+
+
+def obtener_ofrendas_por_fecha(db: Session, fecha_inicio: date = None, fecha_fin: date = None):
+    """Obtiene ofrendas en un rango de fechas."""
+    try:
+        query = db.query(Ofrenda)
+
+        if fecha_inicio:
+            query = query.filter(Ofrenda.fecha >= fecha_inicio)
+        if fecha_fin:
+            query = query.filter(Ofrenda.fecha <= fecha_fin)
+
+        ofrendas = query.order_by(Ofrenda.fecha.desc()).all()
+        return [
+            {
+                "id": o.id,
+                "tipo": o.tipo,
+                "monto": o.monto,
+                "descripcion": o.descripcion,
+                "fecha": o.fecha.strftime("%Y-%m-%d"),
+                "anonima": o.anonima
+            }
+            for o in ofrendas
+        ]
+    except Exception as e:
+        log.error(f"Error al obtener ofrendas: {str(e)}")
+        return []
+
+
+def obtener_total_ofrendas(db: Session, fecha_inicio: date = None, fecha_fin: date = None):
+    """Obtiene el total monetario de ofrendas en un rango de fechas."""
+    try:
+        query = db.query(Ofrenda).filter(Ofrenda.monto != None)
+
+        if fecha_inicio:
+            query = query.filter(Ofrenda.fecha >= fecha_inicio)
+        if fecha_fin:
+            query = query.filter(Ofrenda.fecha <= fecha_fin)
+
+        total = sum(o.monto for o in query.all() if o.monto)
+        return {"total": total, "moneda": "USD"}
+    except Exception as e:
+        log.error(f"Error al calcular total de ofrendas: {str(e)}")
+        return {"total": 0, "moneda": "USD"}
+
+
+def crear_ofrenda(db: Session, data: OfrendaCreate):
+    """Crea un nuevo registro de ofrenda."""
+    try:
+        fecha_obj = datetime.strptime(data.fecha, "%Y-%m-%d").date() if data.fecha else date.today()
+
+        nueva = Ofrenda(
+            tipo=data.tipo.strip(),
+            monto=data.monto,
+            descripcion=data.descripcion.strip() if data.descripcion else None,
+            fecha=fecha_obj,
+            anonima=data.anonima
+        )
+        db.add(nueva)
+        db.commit()
+        db.refresh(nueva)
+        return {
+            "id": nueva.id,
+            "tipo": nueva.tipo,
+            "monto": nueva.monto,
+            "descripcion": nueva.descripcion,
+            "fecha": nueva.fecha.strftime("%Y-%m-%d"),
+            "anonima": nueva.anonima
+        }
+    except Exception as e:
+        db.rollback()
+        log.error(f"Error al crear ofrenda: {str(e)}")
+        raise
+
+
+def eliminar_ofrenda(db: Session, id: int):
+    """Elimina una ofrenda por ID."""
+    try:
+        ofrenda = db.query(Ofrenda).filter(Ofrenda.id == id).first()
+        if ofrenda:
+            db.delete(ofrenda)
+            db.commit()
+            return True
+        return False
+    except Exception as e:
+        db.rollback()
+        log.error(f"Error al eliminar ofrenda ID {id}: {str(e)}")
+        return False
+```
+
+### ARCHIVO: services\__init__.py
+```python
+
+```

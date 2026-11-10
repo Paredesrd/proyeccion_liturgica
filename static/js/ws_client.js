@@ -13,7 +13,7 @@ export function initWebSocket(statusElementId) {
 
     ws.onopen = () => {
         if (statusEl) {
-            statusEl.textContent = 'Conectado (Sync Activa)';
+            statusEl.textContent = '🟢 En Línea';
             statusEl.className = 'badge bg-success p-2 fs-6 shadow-sm';
         }
         console.log('✅ Capa de transporte WebSocket restablecida y estable');
@@ -28,7 +28,7 @@ export function initWebSocket(statusElementId) {
 
     ws.onclose = () => {
         if (statusEl) {
-            statusEl.textContent = 'Falla de Red. Reconectando...';
+            statusEl.textContent = '🔴 Reconectando...';
             statusEl.className = 'badge bg-danger text-white p-2 fs-6 shadow-sm';
         }
         console.warn('⚠️ Transporte desconectado. Intentando reconexión automática...');

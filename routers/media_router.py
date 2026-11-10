@@ -1,9 +1,11 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request, Depends
+from sqlalchemy.orm import Session
+from database.connection import get_db
+from database.models import PredicaSlide, SetlistItem
 import os
 import shutil
 import uuid
 import re
-import json
 
 router = APIRouter()
 
@@ -87,32 +89,32 @@ def delete_background(filename: str):
 
 
 @router.get("/api/media/setlist")
-def get_setlist():
-    if os.path.exists(SETLIST_FILE):
-        with open(SETLIST_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {"canciones_ids": []}
-
+def get_setlist(db: Session = Depends(get_db)):
+    items = db.query(SetlistItem).order_by(SetlistItem.orden).all()
+    return {"canciones_ids": [item.cancion_id for item in items]}
 
 @router.post("/api/media/setlist")
-async def update_setlist(request: Request):
+async def update_setlist(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
-    with open(SETLIST_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f)
+    ids = data.get("canciones_ids", [])
+    db.query(SetlistItem).delete()
+    for i, cid in enumerate(ids):
+        db.add(SetlistItem(cancion_id=cid, orden=i))
+    db.commit()
     return {"status": "ok"}
 
 
 @router.get("/api/predica/bosquejo")
-def get_bosquejo():
-    if os.path.exists(PREDICA_FILE):
-        with open(PREDICA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {"diapositivas": []}
-
+def get_bosquejo(db: Session = Depends(get_db)):
+    slides = db.query(PredicaSlide).order_by(PredicaSlide.orden).all()
+    return {"diapositivas": [{"id": s.id, "titulo": s.titulo, "contenido": s.contenido} for s in slides]}
 
 @router.post("/api/predica/bosquejo")
-async def save_bosquejo(request: Request):
+async def save_bosquejo(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
-    with open(PREDICA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f)
+    slides = data.get("diapositivas", [])
+    db.query(PredicaSlide).delete()
+    for i, slide in enumerate(slides):
+        db.add(PredicaSlide(orden=i, titulo=slide["titulo"], contenido=slide["contenido"]))
+    db.commit()
     return {"status": "ok"}

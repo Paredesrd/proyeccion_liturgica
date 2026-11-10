@@ -1,4 +1,5 @@
 import sys
+import webbrowser
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEngineProfile
@@ -20,6 +21,7 @@ class LiturgicalWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.web_view = QWebEngineView()
+        self.web_view.page().newWindowRequested.connect(self.handle_new_window)
         layout.addWidget(self.web_view)
 
         # Optimización de caché: Forzar uso de RAM en lugar de disco
@@ -44,6 +46,11 @@ class LiturgicalWindow(QMainWindow):
         else:
             self.resize(1280, 720)
             self.show()
+
+
+    def handle_new_window(self, request):
+        # Abre el enlace en el navegador predeterminado (Chrome/Edge)
+        webbrowser.open(request.requestedUrl().toString())
 
     def keyPressEvent(self, event):
         # Mitigación de riesgo: ESC desactiva el fullscreen para recuperar control,

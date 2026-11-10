@@ -163,7 +163,7 @@ body:not(.is-monitor) #content-layer {
     padding-right: 6vw !important;
 }
 
-.predica-layout #content-layer::before {
+.predica-layout::before {
     flex: 0;
 }
 
@@ -191,7 +191,7 @@ body:not(.is-monitor) #content-layer {
     padding-right: 5vw !important;
 }
 
-.cenia-layout #content-layer::before {
+.cenia-layout::before {
     flex: 0;
 }
 
