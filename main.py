@@ -1,5 +1,6 @@
 import sys
 import os
+import multiprocessing
 
 # =====================================================================
 # 1. BLINDAJE DE CONSOLA (DEBE ESTAR AQUÍ, EN LA CIMA DEL ARCHIVO)
@@ -10,8 +11,8 @@ else:
     base_path = os.path.dirname(os.path.abspath(__file__))
 
 log_file = open(os.path.join(base_path, "backend_error.log"), "a", encoding="utf-8")
-pass # sys.stdout = log_file
-pass # sys.stderr = log_file
+pass # pass # sys.stdout = log_file
+pass # pass # sys.stderr = log_file
 
 # =====================================================================
 # 2. IMPORTACIONES DEL SISTEMA
@@ -47,6 +48,7 @@ def start_server():
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     local_ip = get_local_ip()
     log.info("Iniciando infraestructura de backend en red local...")
 

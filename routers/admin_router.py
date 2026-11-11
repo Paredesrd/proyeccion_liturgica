@@ -108,3 +108,16 @@ def drop_cancion(id: int, db: Session = Depends(get_db)):
     if cancion_service.eliminar_cancion(db, id):
         return {"message": "Canción eliminada correctamente"}
     raise HTTPException(status_code=404, detail="Canción no encontrada")
+
+
+@router.put("/api/admin/birthdays/{id}", dependencies=[Depends(verify_api_key)])
+def update_birthday(id: int, data: CumpleanosCreate, db: Session = Depends(get_db)):
+    try:
+        resultado = birthday_service.actualizar_cumpleanos(db, id, data)
+        if resultado is None:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        return resultado
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno al actualizar cumpleanos")

@@ -100,3 +100,20 @@ def obtener_todos_cumpleanos(db: Session):
     except Exception as e:
         log.error(f"Error al obtener todos los cumpleaños: {str(e)}")
         return []
+
+
+def actualizar_cumpleanos(db: Session, id: int, data: CumpleanosCreate):
+    """Actualiza nombre y fecha de un registro de cumpleanos."""
+    try:
+        c = db.query(Cumpleanos).filter(Cumpleanos.id == id).first()
+        if not c:
+            return None
+        c.nombre = data.nombre.strip()
+        c.fecha_nacimiento = datetime.strptime(data.fecha, "%Y-%m-%d").date()
+        db.commit()
+        db.refresh(c)
+        return {"id": c.id, "nombre": c.nombre, "fecha": data.fecha}
+    except Exception as e:
+        db.rollback()
+        log.error(f"Error al actualizar cumpleanos ID {id}: {str(e)}")
+        raise

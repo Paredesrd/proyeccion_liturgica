@@ -37,6 +37,11 @@ export const API = {
                 return null;
             }
         },
+        getAudios: async () => {
+            const response = await fetch('/api/media/audios', { headers: CONFIG.headers() });
+            if(!response.ok) throw new Error("Falla al listar audios");
+            return await response.json();
+        },
         getBackgrounds: async () => {
             const response = await fetch('/api/media/backgrounds', { headers: CONFIG.headers() });
             if(!response.ok) throw new Error("Falla al listar catálogo de fondos");

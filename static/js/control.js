@@ -10,7 +10,6 @@ window.uiLoadSetlist = Worship.uiLoadSetlist;
 window.loadLiveSong = Worship.loadLiveSong;
 window.clearLiveLyrics = Worship.clearLiveLyrics;
 
-// Módulos especializados intocables
 window.uiLoadBosquejo = Core.uiLoadBosquejo;
 window.projectSlide = Core.projectSlide;
 window.clearPredicaScreen = Core.clearPredicaScreen;
@@ -18,11 +17,10 @@ window.clearBibleScreen = Core.clearBibleScreen;
 window.clearStandardScreen = Core.clearStandardScreen;
 window.uiProjectBible = Core.uiProjectBible;
 
-// Nuevo motor unificado optimizado
 window.fireMasterTrigger = Core.fireMasterTrigger;
 window.syncPreviewText = Core.syncPreviewText;
 window.autoUploadAudio = Core.autoUploadAudio;
-window.uiPreviewDatabaseData = Core.uiPreviewDatabaseData; // EXPOSICIÓN AL DOM
+window.uiPreviewDatabaseData = Core.uiPreviewDatabaseData;
 
 const activeModuleNameEl = document.getElementById('active-module-name');
 const dynamicControlsEl = document.getElementById('dynamic-controls');
@@ -40,6 +38,7 @@ function activateModule(moduleName) {
     }
 
     sendCommand('set_module', { module: moduleName }, 'preview');
+    sendCommand('stop_media', {}, 'live');
     renderDynamicControls(moduleName);
 }
 
@@ -56,7 +55,6 @@ function getBgHtml(modId) {
     `;
 }
 
-// CORRECCIÓN ESTRUCTURAL: Nueva bandera 'hideTextParams' para módulos puros de base de datos
 function getStandardModuleHtml(modId, titleLabel, hasDataPreview = false, hideTextParams = false) {
     const title = localStorage.getItem(`${modId}_title`) || '';
     const text = localStorage.getItem(`${modId}_text`) || '';
@@ -76,7 +74,6 @@ function getStandardModuleHtml(modId, titleLabel, hasDataPreview = false, hideTe
         `;
     }
 
-    // Auto-ajuste de numeración de pasos
     const audioStep = hideTextParams ? "1" : "2";
     html += `
         <div class="card bg-black border-secondary shadow-sm">
@@ -86,6 +83,7 @@ function getStandardModuleHtml(modId, titleLabel, hasDataPreview = false, hideTe
                     📁 Cargar pista de audio (Autoguardado)
                 </label>
                 <input type="file" id="${modId}-audio-file" class="d-none" accept="audio/*" onchange="autoUploadAudio('${modId}')">
+                <select id="${modId}-audio-select" class="form-select form-select-sm bg-black border-secondary text-info mt-2" onchange="elegirAudioGuardado('${modId}', this)"><option value="">-- Elegir pista subida --</option></select>
                 <div id="${modId}-audio-filename" class="text-info small text-break mt-2">
                     🎧 Pista asignada en sistema: <br><span class="text-white fw-bold">${audioName}</span>
                 </div>
@@ -144,10 +142,8 @@ async function renderDynamicControls(moduleName) {
     } else if (modId === 'cenia') {
         html += getStandardModuleHtml(modId, 'Ej. Santa Cena');
     } else if (modId === 'cumpleanos') {
-        // Ejecución aislada: No requiere texto estático
         html += getStandardModuleHtml(modId, '', true, true);
     } else if (modId === 'anuncios') {
-        // Ejecución aislada: No requiere texto estático
         html += getStandardModuleHtml(modId, '', true, true);
     } else if (modId === 'ofrendas') {
         html += getStandardModuleHtml(modId, 'Ej. Tiempo de Ofrendas');
@@ -196,9 +192,9 @@ async function renderDynamicControls(moduleName) {
             <div class="d-flex flex-column gap-3">
                 <div class="card bg-black border-secondary shadow-sm">
                     <div class="card-header border-secondary text-secondary fw-bold small d-flex justify-content-between align-items-center">
-                            <span>BUSCADOR BÍBLICO RÁPIDO</span>
-                            <button class="btn btn-sm btn-outline-warning py-0 px-2 fw-bold" onclick="window.openTextSearch()" title="Buscar por texto completo (Ctrl+K)">🔍 Texto</button>
-                        </div>
+                        <span>BUSCADOR BÍBLICO RÁPIDO</span>
+                        <button class="btn btn-sm btn-outline-warning py-0 px-2 fw-bold" onclick="window.openTextSearch()" title="Buscar por texto completo (Ctrl+K)">🔍 Texto</button>
+                    </div>
                     <div class="card-body">
                         <div class="row g-2">
                             <div class="col-12">
@@ -226,6 +222,7 @@ async function renderDynamicControls(moduleName) {
     dynamicControlsEl.innerHTML = html;
 
     Core.uiLoadModuleBackgrounds(modId);
+    Core.uiLoadModuleAudios(modId);
 
     if (modId === 'cumpleanos' || modId === 'anuncios') {
         Core.uiPreviewDatabaseData(modId);

@@ -249,7 +249,7 @@ body:not(.is-monitor) #content-layer {
 }
 
 .birthday-item-clean {
-    font-size: 3.5vw; /* Tamaño reducido para encajar a todos */
+    font-size: 4.5vw; /* Tamaño reducido para encajar a todos */
     padding: 1.2vh 0;
     width: 100%;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15); /* Separador elegante */
@@ -303,12 +303,30 @@ body:not(.is-monitor) #content-layer {
 }
 
 .no-data {
-    font-size: 4vw;
-    color: #9ca3af;
+    font-size: 4.5vw;
+    color: #ffffff;
+    font-weight: 700;
+    text-align: center;
+    text-shadow: 0px 2px 10px rgba(0, 0, 0, 0.9);
 }
 
 #blackout-layer {
     display: none;
     background-color: #000;
     z-index: 999;
+}
+.projector-cita {
+    margin-top: 3vh;
+    text-align: center;
+    font-size: 3.5vw;
+    font-weight: 700;
+}
+.projector-cita .bible-link {
+    color: #fbbf24;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 5px;
+    background: rgba(251, 191, 36, 0.1);
+    padding: 4px 12px;
+    border-radius: 8px;
 }

@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import sys
 import socket
 
 from core.config import settings
@@ -11,7 +12,10 @@ from core.logger import log
 from database.connection import init_db
 from routers import admin_router, projection_router, media_router, bible_router, search_router
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

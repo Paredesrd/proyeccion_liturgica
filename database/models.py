@@ -42,6 +42,7 @@ class PredicaSlide(Base):
     orden = Column(Integer, nullable=False, index=True)
     titulo = Column(String, nullable=False)
     contenido = Column(Text, nullable=False)
+    cita = Column(String(100), nullable=True)
 
 class SetlistItem(Base):
     __tablename__ = "setlist"
