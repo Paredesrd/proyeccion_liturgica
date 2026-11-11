@@ -12,10 +12,11 @@ from core.logger import log
 from database.connection import init_db
 from routers import admin_router, projection_router, media_router, bible_router, search_router
 
+from core.config import BASE_DIR
 if getattr(sys, 'frozen', False):
-    BASE_DIR = sys._MEIPASS
+    BUNDLED_DIR = sys._MEIPASS
 else:
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    BUNDLED_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -32,8 +33,11 @@ app.add_middleware(
 )
 
 # Montaje de recursos estáticos y plantillas
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+EXTERNAL_MEDIA_DIR = os.path.join(BASE_DIR, "static", "media")
+os.makedirs(EXTERNAL_MEDIA_DIR, exist_ok=True)
+app.mount("/static/media", StaticFiles(directory=EXTERNAL_MEDIA_DIR), name="media")
+app.mount("/static", StaticFiles(directory=os.path.join(BUNDLED_DIR, "static")), name="static")
+templates = Jinja2Templates(directory=os.path.join(BUNDLED_DIR, "templates"))
 
 # Registro unificado de Routers
 app.include_router(admin_router.router)

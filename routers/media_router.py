@@ -9,7 +9,7 @@ import re
 
 router = APIRouter()
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from core.config import BASE_DIR
 MEDIA_DIR = os.path.join(BASE_DIR, "static", "media")
 DATA_DIR = os.path.join(BASE_DIR, "static", "data")
 

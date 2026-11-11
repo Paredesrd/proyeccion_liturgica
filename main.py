@@ -3,7 +3,7 @@ import os
 import multiprocessing
 
 # =====================================================================
-# 1. BLINDAJE DE CONSOLA (DEBE ESTAR AQUÍ, EN LA CIMA DEL ARCHIVO)
+# 1. BLINDAJE DE CONSOLA (DEBE ESTAR AQUI, EN LA CIMA DEL ARCHIVO)
 # =====================================================================
 if getattr(sys, 'frozen', False):
     base_path = os.path.dirname(os.path.abspath(sys.executable))
@@ -11,14 +11,14 @@ else:
     base_path = os.path.dirname(os.path.abspath(__file__))
 
 log_file = open(os.path.join(base_path, "backend_error.log"), "a", encoding="utf-8")
-pass # pass # sys.stdout = log_file
-pass # pass # sys.stderr = log_file
+if getattr(sys, 'frozen', False):
+    sys.stdout = log_file
+    sys.stderr = log_file
 
 # =====================================================================
 # 2. IMPORTACIONES DEL SISTEMA
 # =====================================================================
 import time
-import webbrowser
 import socket
 import threading
 import uvicorn
@@ -43,7 +43,7 @@ def get_local_ip():
 
 
 def start_server():
-    """Ejecución del servidor web."""
+    """Ejecucion del servidor web."""
     uvicorn.run(app, host="0.0.0.0", port=settings.PORT)
 
 
@@ -66,15 +66,12 @@ if __name__ == "__main__":
 
     time.sleep(3)
 
-    log.info("Servidor en línea. Desplegando interfaces de escritorio nativas...")
-
-    admin_url = f"http://127.0.0.1:{settings.PORT}/admin"
-    webbrowser.open(admin_url)
+    log.info("Servidor en linea. Desplegando interfaces de escritorio nativas...")
 
     try:
         run_desktop_app()
     finally:
-        log.warning("Cerrando GUI. El hilo del servidor daemon se destruirá automáticamente.")
-        realizar_backup() # <--- RESPALDO AUTOMÁTICO AL CERRAR
+        log.warning("Cerrando GUI. El hilo del servidor daemon se destruira automaticamente.")
+        realizar_backup() # <--- RESPALDO AUTOMATICO AL CERRAR
         log.info("Sistema detenido correctamente.")
         log_file.close()
