@@ -1,43 +1,10 @@
-# Entorno Virtual
 .venv/
-venv/
 env/
-
-# Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+*.pyc
+*.db
+*.log
 build/
 dist/
-*.egg-info/
-
-# Bases de Datos (Muy importante para no subir 40MB)
-*.db
-*.db.bak
-*.sqlite
-
-# Logs y respaldos
-*.log
 backups/
-
-# Archivos multimedia pesados (Audio, Video)
-static/media/audio/*
-static/media/backgrounds/*
-!static/media/audio/.gitkeep
-!static/media/backgrounds/.gitkeep
-
-# Configuración del IDE
-.idea/
-.vscode/
-*.spec
-
-# Datos temporales
-static/data/*.json
-
-# Archivos .bak de respaldo
-*.bak
-
-# Carpeta completa de multimedia (audios y videos pesados)
-static/media/
+acceso_red.txt
