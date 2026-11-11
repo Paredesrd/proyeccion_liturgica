@@ -8,3 +8,5 @@ build/
 dist/
 backups/
 acceso_red.txt
+*.bak
+static/media/
